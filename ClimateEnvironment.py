@@ -40,7 +40,7 @@ class ClimateEnv(gym.Env):
         if not done:
             obs = self.data.iloc[self.current_step][:-2].values
         else:
-            obs = self.reset()  #Automatically reset the environment
+            obs = self.reset()
         
         return obs, reward, done, {}
 
