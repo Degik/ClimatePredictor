@@ -20,6 +20,7 @@ class Node:
         except:
             print('File not found in the path:', local_data_path)
             
+        self.env = ClimateEnv(self.data)
         # Register the environment
         #register_env("ClimateEnv", lambda config: ClimateEnv(self.data))
 
