@@ -7,7 +7,8 @@ from FederatedAggregator import FederatedAggregator
 import os
 
 # Ray initialization
-ray.init(address="auto", runtime_env={"working_dir": os.getcwd(), "files": {"dataset": "dataset"}})
+#ray.init(address="auto", runtime_env={"working_dir": os.getcwd(), "files": {"dataset": "dataset"}})
+ray.init(address="auto")
 
 nodes = [
     Node.options(resources={"n12": 1}).remote(node_id=0, local_data_path="1.csv"),
