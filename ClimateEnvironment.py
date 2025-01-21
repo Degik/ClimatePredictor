@@ -27,7 +27,7 @@ class ClimateEnv(gym.Env):
         """
         super().reset(seed=seed)
         self.current_step = 0
-        obs = self.data.iloc[self.current_step][:-2].values
+        obs = self.data.iloc[self.current_step][:-2].values.astype(np.float32)
         return obs, {}  # Gymnasium requires an info dict
 
     def step(self, action):
@@ -49,7 +49,7 @@ class ClimateEnv(gym.Env):
         truncated = False  # No truncation condition
 
         if not done:
-            obs = self.data.iloc[self.current_step][:-2].values
+            obs = self.data.iloc[self.current_step][:-2].values.astype(np.float32)
         else:
             obs, _ = self.reset()  # Reset the environment when done
         

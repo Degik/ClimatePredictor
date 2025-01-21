@@ -42,7 +42,7 @@ class Node:
         """
         for _ in range(num_steps):
             result = self.trainer.train()
-            print(f"Node {self.node_id} - Reward mean: {result['episode_reward_mean']}")
+            print(f"Node {self.node_id} - Reward mean: {result}")
 
     def get_weights(self):
         """
