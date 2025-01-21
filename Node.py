@@ -1,7 +1,10 @@
 import os
-import ray
 import pandas as pd
+# RLlib
+import ray
+from ray.tune.registry import register_env
 from ray.rllib.algorithms.ppo import PPOConfig
+# Environment
 from ClimateEnvironment import ClimateEnv
 
 @ray.remote
@@ -16,14 +19,16 @@ class Node:
             self.data = pd.read_csv(local_data_path)  # Load local data
         except:
             print('File not found in the path:', local_data_path)
-        self.env = ClimateEnv(self.data)          # Create local environment
+            
+        # Register the environment
+        #register_env("ClimateEnv", lambda config: ClimateEnv(self.data))
 
         # PPO policy configuration
         self.config = (
             PPOConfig()
             .framework("torch")
             .training(gamma=0.99, lr=0.0003, train_batch_size=4000)
-            .env_runners(num_env_runners=1)
+            .env_runners(num_env_runners=1, env_runner_cls=ClimateEnv)
             .resources(num_gpus=0)  # CPUs-based
         )
 
