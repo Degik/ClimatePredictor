@@ -2,7 +2,7 @@ import ray
 import pandas as pd
 #
 from Node import Node
-import FederatedAggregator
+from FederatedAggregator import FederatedAggregator
 
 # Ray initialization
 ray.init(address="auto")
