@@ -7,12 +7,12 @@ from FederatedAggregator import FederatedAggregator
 import os
 
 # Ray initialization
-#ray.init(address="auto", runtime_env={"working_dir": os.getcwd(), "files": {"dataset": "dataset"}})
-ray.init(address="auto")
+ray.init(address="auto", runtime_env={"working_dir": os.getcwd()})
+#ray.init(address="auto")
 
 nodes = [
-    Node.options(resources={"n12": 1}).remote(node_id=0, local_data_path="1.csv"),
-    Node.options(resources={"n13": 1}).remote(node_id=1, local_data_path="2.csv")
+    Node.options(resources={"n12": 1}).remote(node_id=0, local_data_path="/home/ubuntu/davide_b/ClimatePredictor_RL_FL/dataset/1.csv"),
+    Node.options(resources={"n13": 1}).remote(node_id=1, local_data_path="/home/ubuntu/davide_b/ClimatePredictor_RL_FL/dataset/2.csv")
 ]
 
 aggregator = FederatedAggregator.remote(nodes)
