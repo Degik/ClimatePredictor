@@ -11,6 +11,7 @@ class Node:
         Each node is responsible for training a PPO agent on a local dataset.
         """
         self.node_id = node_id
+        self.data = None
         try :
             self.data = pd.read_csv(local_data_path)  # Load local data
         except:
