@@ -28,7 +28,7 @@ class Node:
             PPOConfig()
             .framework("torch")
             .training(gamma=0.99, lr=0.0003, train_batch_size=4000)
-            .env("ClimateEnv")  # Use the registered environment name
+            .environment("ClimateEnv")
             .resources(num_gpus=0)  # CPU-based
         )
 
