@@ -9,15 +9,17 @@ import os
 # Ray initialization
 ray.init(address="auto", runtime_env={"working_dir": os.getcwd()})
 #ray.init(address="auto")
+# Path to the local data
+path_node = "/home/ubuntu/davide_b/ClimatePredictor_RL_FL/dataset/stations/"
 
 nodes = [
-    Node.options(resources={"n12": 1}).remote(node_id=0, local_data_path="/home/ubuntu/davide_b/ClimatePredictor_RL_FL/dataset/stations/1.csv"),
-    Node.options(resources={"n13": 1}).remote(node_id=1, local_data_path="/home/ubuntu/davide_b/ClimatePredictor_RL_FL/dataset/stations/2.csv")
+    Node.options(resources={"n12": 1}).remote(node_id=0, local_data_path=path_node + "1.csv"),
+    Node.options(resources={"n13": 1}).remote(node_id=1, local_data_path=path_node + "2.csv")
 ]
 
 aggregator = FederatedAggregator.remote(nodes)
 
-# Training federato
+# Training loop
 NUM_ROUNDS = 10
 for i in range(NUM_ROUNDS):
     print(f"\n===== ROUND {i} =====")

@@ -23,7 +23,7 @@ class Node:
             PPOConfig()
             .framework("torch")
             .training(gamma=0.99, lr=0.0003, train_batch_size=4000)
-            .rollouts(num_rollout_workers=1, num_envs_per_worker=1, remote_worker_envs=True)
+            .env_runners(num_env_runners=1)
             .resources(num_gpus=0)  # CPUs-based
         )
 
