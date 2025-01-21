@@ -5,11 +5,9 @@ from Node import Node
 from FederatedAggregator import FederatedAggregator
 #
 import os
-import sys
-sys.path.append(os.getcwd())
 
 # Ray initialization
-ray.init(address="auto")
+ray.init(address="auto", runtime_env={"working_dir": os.getcwd()})
 
 nodes = [
     Node.options(resources={"n12": 1}).remote(node_id=0, local_data_path="1.csv"),
