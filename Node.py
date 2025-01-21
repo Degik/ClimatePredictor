@@ -14,7 +14,7 @@ class Node:
         try :
             self.data = pd.read_csv(local_data_path)  # Load local data
         except:
-            print('File not found')
+            print('File not found in the path:', local_data_path)
         self.env = ClimateEnv(self.data)          # Create local environment
 
         # PPO policy configuration
