@@ -1,7 +1,7 @@
 import ray
 import pandas as pd
 #
-from Node import Node, create_nodes
+from Node import Node
 import FederatedAggregator
 
 # Ray initialization
