@@ -3,6 +3,10 @@ import pandas as pd
 #
 from Node import Node
 from FederatedAggregator import FederatedAggregator
+#
+import os
+import sys
+sys.path.append(os.getcwd())
 
 # Ray initialization
 ray.init(address="auto")
