@@ -17,11 +17,9 @@ class ClimateEnv(gym.Env):
         # Filter out non-feature columns
         self.feature_columns = [col for col in data.columns if col not in ["STATION", "NAME", "Target_Temperature", "Rain_Tomorrow"]]
         
-        obs_dim = len(self.feature_columns) - 2  # Remove target columns
         self.observation_space = spaces.Box(
-            low=-9999, high=9999, shape=(obs_dim,), dtype=np.float32
+            low=-9999, high=9999, shape=(len(self.feature_columns),), dtype=np.float32
         )
-        
         self.action_space = spaces.Discrete(2)  # 0: temperature, 1: precipitation
 
     def reset(self, seed=None, options=None):
