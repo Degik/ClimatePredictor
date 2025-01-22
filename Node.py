@@ -6,6 +6,8 @@ from ray.tune.registry import register_env
 from ray.rllib.algorithms.ppo import PPOConfig
 # Environment
 from ClimateEnvironment import ClimateEnv
+# Utilities
+import collections
 
 @ray.remote
 class Node:
@@ -49,7 +51,9 @@ class Node:
         Return the weights of the local model for federated learning.
         """
         weights = self.trainer.get_weights()
-        print(f"Node {self.node_id} - Tipo di weights: {type(weights)}")
+        # Convert the weights to an ordered dictionary
+        # These weights will be sent to the aggregator in the same order
+        weights = collections.OrderedDict(weights)
         return weights
 
     def set_weights(self, global_weights):
