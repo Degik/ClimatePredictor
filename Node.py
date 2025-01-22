@@ -34,7 +34,7 @@ class Node:
 
         # Trainer PPO
         self.trainer = self.config.build()
-        print(f"✅ Node {self.node_id} initialized.")
+        print(f"Node {self.node_id} initialized.")
 
     def train(self, num_steps=1):
         """
