@@ -17,7 +17,7 @@ class ClimateEnv(gym.Env):
         # Filter out non-feature columns
         self.feature_columns = [col for col in data.columns if col not in ["STATION", "NAME", "Target_Temperature", "Rain_Tomorrow"]]
         
-        obs_dim = len(self.data.columns) - 2  # Remove target columns
+        obs_dim = len(self.feature_columns) - 2  # Remove target columns
         self.observation_space = spaces.Box(
             low=-9999, high=9999, shape=(obs_dim,), dtype=np.float32
         )
@@ -30,7 +30,7 @@ class ClimateEnv(gym.Env):
         """
         super().reset(seed=seed)
         self.current_step = 0
-        obs = self.data.iloc[self.current_step][:-2].values.astype(np.float32)
+        obs = self.data[self.feature_columns].iloc[self.current_step].values.astype(np.float32)
         return obs, {}  # Gymnasium requires an info dict
 
     def step(self, action):
@@ -52,7 +52,7 @@ class ClimateEnv(gym.Env):
         truncated = False  # No truncation condition
 
         if not done:
-            obs = self.data.iloc[self.current_step][:-2].values.astype(np.float32)
+            obs = self.data[self.feature_columns].iloc[self.current_step].values.astype(np.float32)
         else:
             obs, _ = self.reset()  # Reset the environment when done
         
