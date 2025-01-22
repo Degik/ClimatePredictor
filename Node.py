@@ -42,13 +42,14 @@ class Node:
         """
         for _ in range(num_steps):
             result = self.trainer.train()
-            print(f"Node {self.node_id} - Reward mean: {result}")
+            #print(f"Node {self.node_id} - Reward mean: {result}")
 
     def get_weights(self):
         """
         Return the weights of the local model for federated learning.
         """
-        return self.trainer.get_policy().get_weights()
+        policy = self.algo.get_policy("default_policy")  # Take the policy from the trainer
+        return policy.get_weights()
 
     def set_weights(self, global_weights):
         """
