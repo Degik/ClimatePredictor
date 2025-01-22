@@ -48,7 +48,9 @@ class Node:
         """
         Return the weights of the local model for federated learning.
         """
-        return self.trainer.get_weights()
+        weights = self.trainer.get_weights()
+        print(f"Node {self.node_id} - Tipo di weights: {type(weights)}")
+        return weights
 
     def set_weights(self, global_weights):
         """
