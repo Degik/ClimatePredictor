@@ -1,4 +1,8 @@
+# Ray
 import ray
+# Utilities
+import collections
+# NumPy
 import numpy as np
 
 @ray.remote
@@ -11,19 +15,20 @@ class FederatedAggregator:
         """
         Aggregation of the weights of all nodes using Federated Averaging.
         """
-        # Get the global weights
-        global_weights = ray.get(self.nodes[0].get_weights.remote())
-        print('Global weights:', global_weights)
+        weights_list = ray.get([node.get_weights.remote() for node in self.nodes])
 
+        if not all(isinstance(weights, collections.OrderedDict) for weights in weights_list):
+            raise TypeError("All weights should be of type OrderedDict!")
+        
         # Average the weights of all nodes
-        for key in global_weights.keys():
-            global_weights[key] = np.mean(
-                [ray.get(node.get_weights.remote())[key] for node in self.nodes], axis = 0
-            )
-        print('Global weights after averaging:', global_weights)
+        averaged_weights = collections.OrderedDict()
+        for key in weights_list[0].keys():
+            averaged_weights[key] = np.mean([w[key] for w in weights_list], axis=0)
+        print('Weights averaged!')
 
         print('Updating the nodes...')
-        # Update all the nodes with the fedarated weights
-        for node in self.nodes:
-            node.set_weights.remote(global_weights)
+        # Update all the nodes with the federated weights
+        ray.get([node.set_weights.remote(averaged_weights) for node in self.nodes])
         print('Nodes updated!')
+        
+        return averaged_weights
