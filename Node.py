@@ -48,12 +48,10 @@ class Node:
         """
         Return the weights of the local model for federated learning.
         """
-        policy = self.trainer.get_policy()
-        return policy.get_weights()
+        return self.trainer.get_weights()
 
     def set_weights(self, global_weights):
         """
         Update the local model with the federated weights.
         """
-        policy = self.trainer.get_policy()
-        policy.set_weights(global_weights)
+        self.trainer.set_weights(global_weights)
