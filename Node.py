@@ -11,6 +11,31 @@ from ray.rllib.algorithms.ppo import PPOConfig
 # Environment
 from ClimateEnvironment import ClimateEnv
 
+
+##### TEST
+import warnings
+import ray.rllib.utils.deprecation as rldep
+
+# Disabilita i warning di RLlib
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+# Patch temporaneo per RLlib 2.x per evitare il bug su '__name__'
+if hasattr(rldep, "_ctor"):
+    def safe_ctor(*args, **kwargs):
+        try:
+            return rldep._ctor(*args, **kwargs)
+        except AttributeError as e:
+            if "no attribute '__name__'" in str(e):
+                return None  # Evita il crash ignorando il problema
+            raise e
+    rldep._ctor = safe_ctor
+
+if hasattr(rldep, "log_once"):
+    def safe_log_once(*args, **kwargs):
+        return True  # Evita che RLlib provi a loggare qualcosa di deprecato
+    rldep.log_once = safe_log_once
+#######
+
 @ray.remote
 class Node:
     def __init__(self, node_id, local_data_path, start_date):
