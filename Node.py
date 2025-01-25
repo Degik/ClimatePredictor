@@ -99,26 +99,15 @@ class Node:
             return
 
         max_date = self.full_data["DATE"].max()
-        if self.current_end_date is None:
-            # If current_end_date is None, set it to the min date
-            self.current_end_date = self.full_data["DATE"].min()
+        self.current_end_date = min(self.current_end_date + pd.Timedelta(days=days), max_date)
 
-        # Increment the current_end_date by `days`
-        self.current_end_date += pd.Timedelta(days=days)
-        if self.current_end_date > max_date:
-            self.current_end_date = max_date
-
-        # Now we update the environment on each worker
+        # Define a function to update the end date in each worker
         new_end_date = self.current_end_date
 
         def do_update(env):
-            # Each worker environment is a ClimateEnv instance
-            env.update_end_date(new_end_date)
+            env.update_end_date(new_end_date) # Update the end date
 
-        # Access the worker set in RLlib 2.x via self.trainer.workers()
-        self.trainer.workers().foreach_worker(
-            lambda w: w.foreach_env(do_update)
-        )
+        self.trainer.workers().foreach_worker(lambda w: w.foreach_env(do_update))
 
         print(f"[Node {self.node_id}] Extended end date to: {self.current_end_date}")
 
