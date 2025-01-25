@@ -11,31 +11,6 @@ from ray.rllib.algorithms.ppo import PPOConfig
 # Environment
 from ClimateEnvironment import ClimateEnv
 
-
-##### TEST
-import warnings
-import ray.rllib.utils.deprecation as rldep
-
-# Disabilita i warning di RLlib
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-
-# Patch temporaneo per RLlib 2.x per evitare il bug su '__name__'
-if hasattr(rldep, "_ctor"):
-    def safe_ctor(*args, **kwargs):
-        try:
-            return rldep._ctor(*args, **kwargs)
-        except AttributeError as e:
-            if "no attribute '__name__'" in str(e):
-                return None  # Evita il crash ignorando il problema
-            raise e
-    rldep._ctor = safe_ctor
-
-if hasattr(rldep, "log_once"):
-    def safe_log_once(*args, **kwargs):
-        return True  # Evita che RLlib provi a loggare qualcosa di deprecato
-    rldep.log_once = safe_log_once
-#######
-
 @ray.remote
 class Node:
     def __init__(self, node_id, local_data_path, start_date):
@@ -109,15 +84,7 @@ class Node:
 
     def add_new_days(self, days=1):
         """
-        Extend the current_end_date by the specified number of days.
-        Then update the environment in all RLlib workers so that
-        they see the expanded dataset.
-        
-        Args:
-            days (int): Number of days to move forward.
-        
-        Returns:
-            None
+        Extend the current_end_date by the specified number of days and update the environment.
         """
         if self.full_data.empty:
             print(f"[Node {self.node_id}] No data available to reveal.")
@@ -126,15 +93,26 @@ class Node:
         max_date = self.full_data["DATE"].max()
         self.current_end_date = min(self.current_end_date + pd.Timedelta(days=days), max_date)
 
-        # Define a function to update the end date in each worker
+        print(f"[Node {self.node_id}] Updating end date to: {self.current_end_date}")
+
+        try:
+            print(f"[Node {self.node_id}] Workers: {self.trainer.workers()}")
+        except Exception as e:
+            print(f"[Node {self.node_id}] ERROR accessing workers: {e}")
+
         new_end_date = self.current_end_date
 
         def do_update(env):
-            env.update_end_date(new_end_date) # Update the end date
+            try:
+                env.update_end_date(new_end_date)
+            except Exception as e:
+                print(f"[Node {self.node_id}] ERROR updating environment: {e}")
 
-        self.trainer.workers().foreach_worker(lambda w: w.foreach_env(do_update))
-
-        print(f"[Node {self.node_id}] Extended end date to: {self.current_end_date}")
+        try:
+            self.trainer.workers().foreach_worker(lambda w: w.foreach_env(do_update))
+            print(f"[Node {self.node_id}] Successfully updated worker environments.")
+        except Exception as e:
+            print(f"[Node {self.node_id}] ERROR updating workers: {e}")
 
     def train(self, num_steps=1):
         """
