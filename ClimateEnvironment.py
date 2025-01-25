@@ -58,6 +58,17 @@ class ClimateEnv(gym.Env):
             dtype=np.float32
         )
 
+    def update_end_date(self, new_date):
+        """
+        Adjust the subset of self.data that the environment uses for rollouts.
+        This avoids re-creating or re-registering the environment.
+        """
+        if self.data.empty:
+            self.current_data = self.data
+        else:
+            self.current_data = self.data[self.data["DATE"] <= new_date].copy()
+        self.current_step = 0
+        
     def reset(self, seed=None, options=None):
         """
         Reset the environment to the initial step and return the first observation.
