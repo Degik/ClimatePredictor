@@ -32,6 +32,10 @@ class Node:
             .training(gamma=0.99, lr=0.0003, train_batch_size=4000)
             .environment("ClimateEnv")
             .resources(num_gpus=0)  # CPU-based
+            .api_stack(
+                enable_rl_module_and_learner=False,
+                enable_env_runner_and_connector_v2=False
+            )
         )
 
         # Trainer PPO
