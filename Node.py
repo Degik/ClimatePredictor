@@ -75,6 +75,7 @@ class Node:
                 enable_rl_module_and_learner=False,
                 enable_env_runner_and_connector_v2=False
             )
+            .rollouts(num_rollout_workers=1)
         )
 
         # Build the trainer
