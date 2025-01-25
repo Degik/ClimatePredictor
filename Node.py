@@ -45,10 +45,10 @@ class Node:
             .training(gamma=0.99, lr=0.0003, train_batch_size=4000)
             .environment(env_name)
             .resources(num_gpus=0)  # CPU-based
-            .api_stack(
-                enable_rl_module_and_learner=False,
-                enable_env_runner_and_connector_v2=False
-            )
+            #.api_stack(
+            #    enable_rl_module_and_learner=False,
+            #    enable_env_runner_and_connector_v2=False
+            #)
         )
 
         # Trainer PPO
@@ -71,7 +71,7 @@ class Node:
 
         return ClimateEnv(limited_data)
 
-    def reveal_new_data(self, days=1):
+    def add_new_days(self, days=1):
         """
         Advance current_end_date by 'days' days, so the environment sees more data.
         If data is exhausted, do nothing.
@@ -96,7 +96,6 @@ class Node:
         self.trainer.workers().foreach_worker(
             lambda w: setattr(w, "env_creator", lambda cfg: self._build_env())
         )
-
     def train(self, num_steps=1):
         """
         Train the PPO agent for a given number of steps.

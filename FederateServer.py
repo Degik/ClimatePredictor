@@ -31,7 +31,7 @@ round_count = 0
 while True:
     print(f"=== Round {round_count} ===")
     print("Revealing new data started.")
-    ray.get([node.reveal_new_data.remote(days=1) for node in nodes])
+    ray.get([node.add_new_days.remote(days=1) for node in nodes])
     print("Revealing new data completed.")
 
     # Training
@@ -58,7 +58,8 @@ while True:
 
     round_count += 1
 
-    # 5) Sleep before next round
+    # Wait for a while before starting the next round
     time.sleep(10)
+
 
 #ray.shutdown()
