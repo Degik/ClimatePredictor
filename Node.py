@@ -109,7 +109,8 @@ class Node:
                 print(f"[Node {self.node_id}] ERROR updating environment: {e}")
 
         try:
-            self.trainer.workers.foreach_worker(lambda worker: worker.foreach_env(do_update))
+            for worker in self.trainer.workers():
+                worker.foreach_env(do_update)
             print(f"[Node {self.node_id}] Successfully updated worker environments.")
         except Exception as e:
             print(f"[Node {self.node_id}] ERROR updating workers: {e}")
