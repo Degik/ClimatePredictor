@@ -8,75 +8,107 @@ class ClimateEnv(gym.Env):
     def __init__(self, data):
         """
         Initialize the environment with the given dataset.
+        
+        Args:
+            data (pd.DataFrame): The local climate dataset with columns:
+                [
+                    "HourlyVisibility",
+                    "HourlyStationPressure",
+                    "HourlyRelativeHumidity",
+                    "HourlyWindDirection",
+                    "HourlyWindSpeed",
+                    "HourlyAltimeterSetting",
+                    "HourlyWetBulbTemperature",
+                    "HourlyDewPointTemperature",
+                    "HourlyDryBulbTemperature",
+                    "DATE"
+                ]
         """
         super(ClimateEnv, self).__init__()
 
         self.data = data
         self.current_step = 0
+
+        # Identify feature columns (exclude the target and DATE)
+        self.feature_columns = [
+            "HourlyVisibility",
+            "HourlyStationPressure",
+            "HourlyRelativeHumidity",
+            "HourlyWindDirection",
+            "HourlyWindSpeed",
+            "HourlyAltimeterSetting",
+            "HourlyWetBulbTemperature",
+            "HourlyDewPointTemperature"
+        ]
+        self.target_column = "HourlyDryBulbTemperature"
         
-        # Filter out non-feature columns
-        self.feature_columns = [col for col in data.columns if col not in ["STATION", "NAME", "Target_Temperature", "Rain_Tomorrow"]]
-        
+        # Observation space: 8 continuous features
         self.observation_space = spaces.Box(
-            low=-9999, high=9999, shape=(len(self.feature_columns),), dtype=np.float32
+            low=-9999.0,
+            high=9999.0,
+            shape=(len(self.feature_columns),),
+            dtype=np.float32
         )
-        self.action_space = spaces.Discrete(2)  # 0: temperature, 1: precipitation
+
+        # Action space: continuous prediction of temperature (for example, -50°C to 60°C)
+        self.action_space = spaces.Box(
+            low=np.array([-50.0]),
+            high=np.array([95.0]),
+            shape=(1,),
+            dtype=np.float32
+        )
 
     def reset(self, seed=None, options=None):
         """
-        Reset the environment and return the initial observation.
+        Reset the environment to the initial step and return the first observation.
+        
+        Returns:
+            obs (np.ndarray): The feature vector at the current step.
+            info (dict): Additional info dictionary (empty in this case).
         """
         super().reset(seed=seed)
         self.current_step = 0
-        obs = self.data[self.feature_columns].iloc[self.current_step].values.astype(np.float32)
-        return obs, {}  # Gymnasium requires an info dict
+
+        # Build the first observation
+        obs = self._get_observation(self.current_step)
+        return obs, {}
 
     def step(self, action):
-        """
-        Execute one step in the environment based on the chosen action.
-        """
-        if action == 0:
-            # Prediction for temperature
-            reward = self._calculate_reward_temp()
-        elif action == 1:
-            # Prediction for precipitation
-            reward = self._calculate_reward_precip(method='log_loss')
-        else:
-            raise ValueError("Invalid action!")
+            """
+            Execute one step in the environment based on the chosen action.
+            
+            Args:
+                action (np.ndarray): The predicted temperature (shape = (1,)).
+            """
+            # Extract the true temperature
+            true_temp = self.data[self.target_column].iloc[self.current_step]
+            # The agent's predicted temperature
+            predicted_temp = float(action[0])
 
-        # Move to the next step
-        self.current_step += 1
-        done = self.current_step >= len(self.data) - 1
-        truncated = False  # No truncation condition
+            # Compute reward
+            reward = -abs(predicted_temp - true_temp)
 
-        if not done:
-            obs = self.data[self.feature_columns].iloc[self.current_step].values.astype(np.float32)
-        else:
-            obs, _ = self.reset()  # Reset the environment when done
+            # Move to the next step
+            self.current_step += 1
+            done = self.current_step >= (len(self.data) - 1)
+
+            if not done:
+                obs = self._get_observation(self.current_step)
+            else:
+                # If done, reset environment automatically
+                obs, _ = self.reset()
+
+            return obs, reward, done, {}
+
+    def _get_observation(self, step_idx):
+        """
+        Return the feature vector at the given step index.
         
-        return obs, reward, done, truncated, {}  # Gymnasium requires 5 return values
-
-    def _calculate_reward_temp(self):
-        """
-        Reward calculation for temperature prediction.
-        """
-        true_temp = self.data.iloc[self.current_step]['Target_Temperature']
-        predicted_temp = np.random.uniform(-10, 50)  # Placeholder for model prediction
-        reward = -np.abs(predicted_temp - true_temp)  # Negative absolute error as reward
-        return reward
-
-    def _calculate_reward_precip(self, method='binary'):
-        """
-        Reward calculation for precipitation prediction.
-        """
-        true_precip = self.data.iloc[self.current_step]['Rain_Tomorrow']
-        predicted_precip = np.random.uniform(0, 1)  # Placeholder for model prediction
-
-        if method == 'binary':
-            # Reward is 1 if correct, -1 otherwise
-            reward = 1 if (predicted_precip > 0.5) == true_precip else -1
-        elif method == 'log_loss':
-            # Logarithmic loss (penalizes incorrect predictions more heavily)
-            reward = -np.log(predicted_precip) if true_precip == 1 else -np.log(1 - predicted_precip)
+        Args:
+            step_idx (int): The current index in the dataset.
         
-        return reward
+        Returns:
+            np.ndarray: The selected feature values as a float32 array.
+        """
+        row = self.data.loc[step_idx, self.feature_columns]
+        return row.values.astype(np.float32)
