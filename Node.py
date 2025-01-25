@@ -93,7 +93,7 @@ class Node:
         register_env(env_name, lambda cfg: self._build_env())
 
         # Update the environment on all workers
-        self.trainer.workers.foreach_worker(
+        self.trainer.workers().foreach_worker(
             lambda w: setattr(w, "env_creator", lambda cfg: self._build_env())
         )
 
