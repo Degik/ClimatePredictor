@@ -71,7 +71,10 @@ class Node:
             .environment(env_name)
             .resources(num_gpus=0)
             .training(gamma=0.99, lr=0.0003, train_batch_size=4000)
-            # .rollouts(num_rollout_workers=0)  # If you want single-worker
+            .api_stack(
+                enable_rl_module_and_learner=False,
+                enable_env_runner_and_connector_v2=False
+            )
         )
 
         # Build the trainer
