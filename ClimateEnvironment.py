@@ -68,7 +68,7 @@ class ClimateEnv(gym.Env):
         else:
             self.current_data = self.data[self.data["DATE"] <= new_date].copy()
         self.current_step = 0
-        
+
     def reset(self, seed=None, options=None):
         """
         Reset the environment to the initial step and return the first observation.
@@ -98,7 +98,8 @@ class ClimateEnv(gym.Env):
 
             # Compute reward
             reward = -abs(predicted_temp - true_temp)
-
+            #
+            truncted = False
             # Move to the next step
             self.current_step += 1
             done = self.current_step >= (len(self.data) - 1)
@@ -109,7 +110,7 @@ class ClimateEnv(gym.Env):
                 # If done, reset environment automatically
                 obs, _ = self.reset()
 
-            return obs, reward, done, {}
+            return obs, reward, done, truncted, {}
 
     def _get_observation(self, step_idx):
         """
