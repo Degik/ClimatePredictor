@@ -6,6 +6,10 @@ from FederatedAggregator import FederatedAggregator
 # Utilities
 import os
 import time
+import warnings
+
+# Ignore deprecation warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # Ray initialization
 ray.init(address="auto", runtime_env={"working_dir": os.getcwd()})
