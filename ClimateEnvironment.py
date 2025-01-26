@@ -105,6 +105,7 @@ class ClimateEnv(gym.Env):
         # Convert action to PyTorch tensor
         action_tensor = torch.tensor(action, dtype=torch.float32)
         predicted_temp = action_tensor.item() if action_tensor.numel() > 0 else 0.0
+        predicted_temp = torch.clamp(predicted_temp, min=-20, max=95).item()  # Block predictions outside the range
 
         # Get the true temperature for the current step
         true_temp = self.data[self.target_column].iloc[self.current_step]
@@ -114,7 +115,7 @@ class ClimateEnv(gym.Env):
             print(f"[WARNING] NaN detected at step {self.current_step}, assigning penalty")
             reward = -10  # Penalization for missing data
         else:
-            true_temp_tensor = torch.tensor(true_temp, dtype=torch.float32)
+            true_temp_tensor = torch.tensor(true_temp, dtype=torch.float32).unsqueeze(0)
 
             # Mean Squared Error (MSE) Loss
             mse_loss = F.mse_loss(action_tensor, true_temp_tensor)
@@ -146,7 +147,7 @@ class ClimateEnv(gym.Env):
         else:
             obs = self._get_observation(self.current_step)
 
-        
+
         if self.current_step % 1000 == 0:
             print(f"[DEBUG] Step {self.current_step} | True Temp: {true_temp:.2f} | Pred: {predicted_temp:.2f} | Reward: {reward:.4f}")
 
