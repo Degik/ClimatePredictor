@@ -151,6 +151,7 @@ class ClimateEnv(gym.Env):
         if self.current_step % 1000 == 0:
             print(f"[DEBUG] Step {self.current_step} | True Temp: {true_temp:.2f} | Pred: {predicted_temp:.2f} | Reward: {reward:.4f}")
 
+        print("Done is: ", done)
         return obs, reward, done, truncated, {}
 
     def _get_observation(self, step_idx):
