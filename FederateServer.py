@@ -45,12 +45,11 @@ while True:
 
     # Federated averaging
     print("Federated averaging started.")
-    ray.get(aggregator.federated_averaging.remote())
+    global_weights = ray.get(aggregator.federated_averaging.remote())
     print("Federated averaging completed.")
 
     # Set the global weights on each node
     print("Setting global weights.")
-    global_weights = ray.get(aggregator.get_global_weights.remote())
     for node in nodes:
         node.set_weights.remote(global_weights)
     print("Global weights set.")
