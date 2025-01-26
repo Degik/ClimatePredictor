@@ -93,27 +93,13 @@ class Node:
         max_date = self.full_data["DATE"].max()
         self.current_end_date = min(self.current_end_date + pd.Timedelta(days=days), max_date)
 
-        print(f"[Node {self.node_id}] Updating end date to: {self.current_end_date}")
-
-        try:
-            print(f"[Node {self.node_id}] Workers: {self.trainer.workers()}")
-        except Exception as e:
-            print(f"[Node {self.node_id}] ERROR accessing workers: {e}")
-
         new_end_date = self.current_end_date
 
         def do_update(env):
-            try:
-                env.update_end_date(new_end_date)
-            except Exception as e:
-                print(f"[Node {self.node_id}] ERROR updating environment: {e}")
-
-        try:
-            env = self.trainer.workers.local_worker().env
             env.update_end_date(new_end_date)
-            print(f"[Node {self.node_id}] Successfully updated worker environments.")
-        except Exception as e:
-            print(f"[Node {self.node_id}] ERROR updating workers: {e}")
+
+        # Update the environment
+        self.trainer.workers.foreach_env(do_update)
 
     def train(self, num_steps=1):
         """
