@@ -65,7 +65,7 @@ By merging these techniques, the project highlights:
    ```
 
 3. **Install Dependencies**  
-   Make sure you have Python 3.7+ installed. Then run:
+   Make sure you have Python 3.10.12+ (suggested) installed. Then run:
    ```bash
    pip install -r requirements.txt
    ```
