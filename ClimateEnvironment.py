@@ -105,7 +105,7 @@ class ClimateEnv(gym.Env):
         # Convert action to PyTorch tensor
         action_tensor = torch.tensor(action, dtype=torch.float32)
         predicted_temp = action_tensor.item() if action_tensor.numel() > 0 else 0.0
-        predicted_temp = torch.clamp(predicted_temp, min=-20, max=95).item()  # Block predictions outside the range
+        predicted_temp = torch.tensor(predicted_temp).clamp(min=-20, max=95).item() # Block predictions outside the range
 
         # Get the true temperature for the current step
         true_temp = self.data[self.target_column].iloc[self.current_step]
