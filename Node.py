@@ -100,6 +100,9 @@ class Node:
             env.update_end_date(new_end_date)
 
         # Update the environment
+        # Note that: https://discuss.ray.io/t/correct-way-of-using-foreach-worker-and-foreach-env/21000
+        # I've spent a lot time to resolve this issue
+        # Now ray uses gymnasium, so we need to use env_runner_group and not workers
         self.trainer.env_runner_group.foreach_env(do_update)
 
     def train(self, num_steps=1):
