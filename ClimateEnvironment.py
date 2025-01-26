@@ -126,7 +126,7 @@ class ClimateEnv(gym.Env):
             # Stability Penalty: L1 loss between current and previous prediction
             if self.current_step > 0:
                 prev_pred_tensor = torch.tensor(self.prev_action, dtype=torch.float32)
-                stability_penalty = F.l1_loss(action_tensor, prev_pred_tensor) / 10
+                stability_penalty = F.l1_loss(action_tensor.view(-1), prev_pred_tensor.view(-1)) / 10
             else:
                 stability_penalty = torch.tensor(0.0)
 
