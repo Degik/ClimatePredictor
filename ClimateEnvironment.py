@@ -3,6 +3,9 @@ import numpy as np
 # Gymnasium is a custom library for creating custom environments
 import gymnasium as gym
 from gymnasium import spaces
+# Torch
+import torch
+import torch.nn.functional as F
 
 class ClimateEnv(gym.Env):
     def __init__(self, data):
@@ -84,33 +87,70 @@ class ClimateEnv(gym.Env):
         obs = self._get_observation(self.current_step)
         return obs, {}
 
+    
     def step(self, action):
-            """
-            Execute one step in the environment based on the chosen action.
-            
-            Args:
-                action (np.ndarray): The predicted temperature (shape = (1,)).
-            """
-            # Extract the true temperature
-            true_temp = self.data[self.target_column].iloc[self.current_step]
-            # The agent's predicted temperature
-            predicted_temp = float(action[0])
+        """
+        Execute one step in the environment based on the chosen action.
 
-            # Compute reward
-            reward = -abs(predicted_temp - true_temp)
-            #
-            truncted = False
-            # Move to the next step
-            self.current_step += 1
-            done = self.current_step >= (len(self.data) - 1)
+        Args:
+            action (np.ndarray): The predicted temperature (shape = (1,)).
 
-            if not done:
-                obs = self._get_observation(self.current_step)
+        Returns:
+            obs (np.ndarray): Next observation.
+            reward (float): Reward for the action taken.
+            done (bool): True if the episode is over.
+            truncated (bool): True if the episode was truncated.
+            info (dict): Additional debugging info.
+        """
+        # Convert action to PyTorch tensor
+        action_tensor = torch.tensor(action, dtype=torch.float32)
+        predicted_temp = action_tensor.item() if action_tensor.numel() > 0 else 0.0
+
+        # Get the true temperature for the current step
+        true_temp = self.data[self.target_column].iloc[self.current_step]
+
+        # Check for NaN values in the true temperature
+        if np.isnan(true_temp):
+            print(f"[WARNING] NaN detected at step {self.current_step}, assigning penalty")
+            reward = -10  # Penalization for missing data
+        else:
+            true_temp_tensor = torch.tensor(true_temp, dtype=torch.float32)
+
+            # Mean Squared Error (MSE) Loss
+            mse_loss = F.mse_loss(action_tensor, true_temp_tensor)
+
+            # Mean Absolute Error (MAE) Loss
+            mae_loss = F.l1_loss(action_tensor, true_temp_tensor)
+
+            # Stability Penalty: L1 loss between current and previous prediction
+            if self.current_step > 0:
+                prev_pred_tensor = torch.tensor(self.prev_action, dtype=torch.float32)
+                stability_penalty = F.l1_loss(action_tensor, prev_pred_tensor) / 10
             else:
-                # If done, reset environment automatically
-                obs, _ = self.reset()
+                stability_penalty = torch.tensor(0.0)
 
-            return obs, reward, done, truncted, {}
+            # Reward is the negative sum of losses
+            reward = -(mse_loss + mae_loss + stability_penalty).item()
+
+        # Store the current action for the next step
+        self.prev_action = predicted_temp
+
+        # Move to the next step
+        self.current_step += 1
+        done = self.current_step >= (len(self.data) - 1)
+        truncated = False
+
+        # Reset the environment if the episode is over
+        if done:
+            obs, _ = self.reset()
+        else:
+            obs = self._get_observation(self.current_step)
+
+        
+        if self.current_step % 1000 == 0:
+            print(f"[DEBUG] Step {self.current_step} | True Temp: {true_temp:.2f} | Pred: {predicted_temp:.2f} | Reward: {reward:.4f}")
+
+        return obs, reward, done, truncated, {}
 
     def _get_observation(self, step_idx):
         """
