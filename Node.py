@@ -79,7 +79,7 @@ class Node:
                 gamma=0.995,
                 lr=0.0001,
                 train_batch_size=8000,   
-                sgd_minibatch_size=1024,
+                #sgd_minibatch_size=1024, # Deprecated
                 num_sgd_iter=10,
                 clip_param=0.2,
                 vf_loss_coeff=0.5,
