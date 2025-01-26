@@ -132,6 +132,7 @@ class Node:
         """
         for i in range(num_steps):
             result = self.trainer.train()
+            print(f"[Node {self.node_id}] Training Iteration {i + 1}: {result}")
             # Logg
             policy_loss = result["info"]["learner"]["default_policy"]["learner_stats"]["policy_loss"]
             vf_loss = result["info"]["learner"]["default_policy"]["learner_stats"]["vf_loss"]

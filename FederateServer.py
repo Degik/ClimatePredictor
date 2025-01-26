@@ -16,7 +16,7 @@ ray.init(address="auto", runtime_env={"working_dir": os.getcwd()})
 #ray.init(address="auto")
 # Path to the local data
 path_node = "/home/ubuntu/davide_b/ClimatePredictor_RL_FL/datasets_hourly/"
-start_date = pd.Timestamp("2022-01-01")
+start_date = pd.Timestamp("2024-06-01")
 nodes = [
     Node.options(resources={"n12": 2}).remote(node_id=0, local_data_path=path_node + "1.csv", start_date=start_date),
     Node.options(resources={"n12": 2}).remote(node_id=1, local_data_path=path_node + "2.csv", start_date=start_date),
