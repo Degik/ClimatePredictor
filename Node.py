@@ -100,7 +100,7 @@ class Node:
             env.update_end_date(new_end_date)
 
         # Update the environment
-        self.trainer.workers.foreach_env(do_update)
+        self.trainer.env_runner_group.foreach_env(do_update)
 
     def train(self, num_steps=1):
         """
