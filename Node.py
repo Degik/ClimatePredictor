@@ -70,11 +70,24 @@ class Node:
             .framework("torch")
             .environment(env_name)
             .resources(num_gpus=0)
-            .env_runners(num_env_runners=1)
-            .training(gamma=0.99, lr=0.0003, train_batch_size=4000)
+            .env_runners(num_env_runners=2)
             .api_stack(
                 enable_rl_module_and_learner=False,
                 enable_env_runner_and_connector_v2=False
+            )
+            .training(
+                gamma=0.995,
+                lr=0.0001,
+                train_batch_size=8000,   
+                sgd_minibatch_size=1024,
+                num_sgd_iter=10,
+                clip_param=0.2,
+                vf_loss_coeff=0.5,
+                vf_clip_param=10.0,
+                entropy_coeff=0.01,
+                lambda_=0.95,
+                use_critic=True,
+                use_gae=True
             )
         )
 
