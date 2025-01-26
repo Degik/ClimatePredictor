@@ -70,7 +70,7 @@ class Node:
             .framework("torch")
             .environment(env_name)
             .resources(num_gpus=0)
-            .rollouts(num_rollout_workers=1)
+            .env_runners(num_env_runners=1)
             .training(gamma=0.99, lr=0.0003, train_batch_size=4000)
             .api_stack(
                 enable_rl_module_and_learner=False,
