@@ -18,15 +18,15 @@ ray.init(address="auto", runtime_env={"working_dir": os.getcwd()})
 path_node = "/home/ubuntu/davide_b/ClimatePredictor_RL_FL/datasets_hourly/"
 start_date = pd.Timestamp("2022-01-01")
 nodes = [
-    Node.options(resources={"n12": 1}).remote(node_id=0, local_data_path=path_node + "1.csv", start_date=start_date),
-    Node.options(resources={"n12": 1}).remote(node_id=1, local_data_path=path_node + "2.csv", start_date=start_date),
-    Node.options(resources={"n12": 1}).remote(node_id=2, local_data_path=path_node + "3.csv", start_date=start_date),
-    Node.options(resources={"n13": 1}).remote(node_id=3, local_data_path=path_node + "4.csv", start_date=start_date),
-    Node.options(resources={"n13": 1}).remote(node_id=4, local_data_path=path_node + "5.csv", start_date=start_date),
-    Node.options(resources={"n13": 1}).remote(node_id=5, local_data_path=path_node + "6.csv", start_date=start_date),
-    Node.options(resources={"n14": 1}).remote(node_id=6, local_data_path=path_node + "7.csv", start_date=start_date),
-    Node.options(resources={"n14": 1}).remote(node_id=7, local_data_path=path_node + "8.csv", start_date=start_date),
-    Node.options(resources={"n14": 1}).remote(node_id=8, local_data_path=path_node + "9.csv", start_date=start_date),
+    Node.options(resources={"n12": 2}).remote(node_id=0, local_data_path=path_node + "1.csv", start_date=start_date),
+    Node.options(resources={"n12": 2}).remote(node_id=1, local_data_path=path_node + "2.csv", start_date=start_date),
+    Node.options(resources={"n12": 2}).remote(node_id=2, local_data_path=path_node + "3.csv", start_date=start_date),
+    Node.options(resources={"n13": 2}).remote(node_id=3, local_data_path=path_node + "4.csv", start_date=start_date),
+    Node.options(resources={"n13": 2}).remote(node_id=4, local_data_path=path_node + "5.csv", start_date=start_date),
+    Node.options(resources={"n13": 2}).remote(node_id=5, local_data_path=path_node + "6.csv", start_date=start_date),
+    Node.options(resources={"n14": 2}).remote(node_id=6, local_data_path=path_node + "7.csv", start_date=start_date),
+    Node.options(resources={"n14": 2}).remote(node_id=7, local_data_path=path_node + "8.csv", start_date=start_date),
+    Node.options(resources={"n14": 2}).remote(node_id=8, local_data_path=path_node + "9.csv", start_date=start_date),
 ]
 
 aggregator = FederatedAggregator.remote(nodes)

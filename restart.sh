@@ -29,7 +29,7 @@ for i in {12..14}; do
 
   # Start Ray on the worker node, connecting to the head node and specifying resources.
   echo "  Starting Ray..."
-  ssh ubuntu@"${WORKER_NODE}" "/home/ubuntu/.local/bin/ray start --address=${HEAD_NODE_IP}:${HEAD_NODE_PORT} --resources '{\"n${i}\": 3}'"
+  ssh ubuntu@"${WORKER_NODE}" "/home/ubuntu/.local/bin/ray start --address=${HEAD_NODE_IP}:${HEAD_NODE_PORT} --resources '{\"n${i}\": 6}'"
 done
 
 echo "Ray start complete"
