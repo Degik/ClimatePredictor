@@ -80,11 +80,11 @@ class Node:
                 lr=0.0001,
                 train_batch_size=8000,   
                 #sgd_minibatch_size=1024, # Deprecated
-                num_sgd_iter=10,
+                num_sgd_iter=20,
                 clip_param=0.2,
                 vf_loss_coeff=0.5,
                 vf_clip_param=10.0,
-                entropy_coeff=0.01,
+                entropy_coeff=0.04,
                 lambda_=0.95,
                 use_critic=True,
                 use_gae=True
