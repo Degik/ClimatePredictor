@@ -117,7 +117,7 @@ class Node:
         """
         for i in range(num_steps):
             result = self.trainer.train()
-            print(f"[Node {self.node_id}] Iteration {i}: {result['episode_reward_mean']}")
+            #print(f"[Node {self.node_id}] Iteration {i}: {result['episode_reward_mean']}")
 
     def get_weights(self):
         """
