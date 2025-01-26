@@ -118,6 +118,8 @@ class Node:
         # Now ray uses gymnasium, so we need to use env_runner_group and not workers
         self.trainer.env_runner_group.foreach_env(do_update)
 
+        print(f"[Node {self.node_id}] Revealed new data up to: {new_end_date}.")
+
     def train(self, num_steps=1):
         """
         Train the PPO agent for a specified number of steps (iterations).
