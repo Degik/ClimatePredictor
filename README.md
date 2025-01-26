@@ -22,7 +22,7 @@ This project integrates **Reinforcement Learning (RL)** and **Federated Learning
 - Train collaboratively on decentralized datasets without sharing raw data via FL.
 - Combine RL and FL to enhance predictive performance while preserving data privacy.
 
-To manage large-scale distributed training and parallel computation efficiently, the project leverages the **Ray framework**, which enables scalable RL and FL implementations by distributing workloads across multiple nodes.
+To manage large-scale distributed training and parallel computation efficiently, the project leverages the **Ray framework** (2.40v), which enables scalable RL and FL implementations by distributing workloads across multiple nodes.
 
 By merging these techniques, the project highlights:
 - The benefits of integrating RL and FL in climate prediction pipelines.
