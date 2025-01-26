@@ -117,7 +117,28 @@ class Node:
         """
         for i in range(num_steps):
             result = self.trainer.train()
-            #print(f"[Node {self.node_id}] Iteration {i}: {result['episode_reward_mean']}")
+            # Logg
+            policy_loss = result["info"]["learner"]["default_policy"]["learner_stats"]["policy_loss"]
+            vf_loss = result["info"]["learner"]["default_policy"]["learner_stats"]["vf_loss"]
+            kl = result["info"]["learner"]["default_policy"]["learner_stats"]["kl"]
+            entropy = result["info"]["learner"]["default_policy"]["learner_stats"]["entropy"]
+            
+            num_steps_sampled = result["num_env_steps_sampled"]
+            num_steps_trained = result["num_env_steps_trained"]
+            training_iteration = result["training_iteration"]
+            
+            episode_reward = result["env_runners"]["episode_reward_mean"]
+            episode_len = result["env_runners"]["episode_len_mean"]
+
+            # Print training stats
+            print(f"[Node {self.node_id}] Training Iteration {training_iteration}: "
+                f"Steps Sampled: {num_steps_sampled}, Steps Trained: {num_steps_trained}")
+            
+            print(f"[Node {self.node_id}] Training Stats - Policy Loss: {policy_loss:.4f}, "
+                f"VF Loss: {vf_loss:.4f}, KL: {kl:.4f}, Entropy: {entropy:.4f}")
+            
+            print(f"[Node {self.node_id}] Episode Performance - Mean Reward: {episode_reward:.4f}, "
+                f"Mean Episode Length: {episode_len}")
 
     def get_weights(self):
         """
