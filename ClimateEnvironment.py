@@ -6,6 +6,8 @@ from gymnasium import spaces
 # Torch
 import torch
 import torch.nn.functional as F
+# Math
+import math
 
 class ClimateEnv(gym.Env):
     def __init__(self, data):
@@ -55,11 +57,15 @@ class ClimateEnv(gym.Env):
 
         # Action space: continuous prediction of temperature (for example, -50°C to 60°C)
         self.action_space = spaces.Box(
-            low=np.array([-50.0]),
+            low=np.array([-20.0]),
             high=np.array([95.0]),
             shape=(1,),
             dtype=np.float32
         )
+
+        # New
+        self.prev_action = None
+        self.current_data = self.data.copy()
 
     def update_end_date(self, new_date):
         """
@@ -71,6 +77,7 @@ class ClimateEnv(gym.Env):
         else:
             self.current_data = self.data[self.data["DATE"] <= new_date].copy()
         self.current_step = 0
+        self.prev_action = None
 
     def reset(self, seed=None, options=None):
         """
@@ -82,6 +89,7 @@ class ClimateEnv(gym.Env):
         """
         super().reset(seed=seed)
         self.current_step = 0
+        self.prev_action = None
 
         # Build the first observation
         obs = self._get_observation(self.current_step)
@@ -128,10 +136,14 @@ class ClimateEnv(gym.Env):
                 prev_pred_tensor = torch.tensor(self.prev_action, dtype=torch.float32)
                 stability_penalty = F.l1_loss(action_tensor.view(-1), prev_pred_tensor.view(-1)) / 10
             else:
-                stability_penalty = torch.tensor(0.0)
+                stability_penalty = 0.0
 
-            # Reward is the negative sum of losses
-            reward = -(mse_loss + mae_loss + stability_penalty).item()
+            # Reward: Exponential decay of the combined loss
+            alpha = 0.001
+            raw_error = (mse_loss + mae_loss + stability_penalty).item()
+            scaled_error = alpha * raw_error
+            reward = math.exp(-scaled_error)
+                        
 
         # Store the current action for the next step
         self.prev_action = predicted_temp
@@ -148,10 +160,9 @@ class ClimateEnv(gym.Env):
             obs = self._get_observation(self.current_step)
 
 
-        if self.current_step % 1000 == 0:
-            print(f"[DEBUG] Step {self.current_step} | True Temp: {true_temp:.2f} | Pred: {predicted_temp:.2f} | Reward: {reward:.4f}")
+        if self.current_step % 500 == 0:
+            print(f"[DEBUG] Step {self.current_step} | True Temp: {true_temp:.2f} | Pred: {predicted_temp:.2f} | Reward: {reward:.8f}")
 
-        print("Done is: ", done)
         return obs, reward, done, truncated, {}
 
     def _get_observation(self, step_idx):
@@ -164,5 +175,6 @@ class ClimateEnv(gym.Env):
         Returns:
             np.ndarray: The selected feature values as a float32 array.
         """
-        row = self.data.loc[step_idx, self.feature_columns]
+        row = self.data.iloc[step_idx][self.feature_columns]
+        #row = self.data.loc[step_idx, self.feature_columns]
         return row.values.astype(np.float32)

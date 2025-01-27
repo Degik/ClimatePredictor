@@ -49,6 +49,8 @@ class Node:
                 # If start_date is before the min date in the dataset,
                 # adjust it to the min date to avoid empty subsets.
                 self.current_end_date = self.full_data["DATE"].min()
+        else:
+            self.current_end_date = None
 
         # Create a unique environment name for this node
         env_name = f"ClimateEnv_{self.node_id}"
@@ -58,7 +60,8 @@ class Node:
         # and we will call `update_end_date` later to limit it.
         def env_creator(cfg):
             env = ClimateEnv(self.full_data)
-            env.update_end_date(self.current_end_date)
+            if self.current_end_date is not None:
+                env.update_end_date(self.current_end_date)
             return env
 
         # Register the environment ONCE
@@ -78,7 +81,7 @@ class Node:
             .training(
                 gamma=0.995,
                 lr=0.0001,
-                train_batch_size=8000,   
+                train_batch_size=40000,
                 #sgd_minibatch_size=1024, # Deprecated
                 num_sgd_iter=20,
                 clip_param=0.2,
@@ -131,8 +134,10 @@ class Node:
             dict: Training results from RLlib.
         """
         for i in range(num_steps):
+            #sample_time = self.trainer.env_runner_group.foreach_env(lambda env: env.sample())
+            #print(f"[Node {self.node_id}] Sample Time: {sample_time}")
+            #
             result = self.trainer.train()
-            print(f"[Node {self.node_id}] Training Iteration {i + 1}: {result}")
             # Logg
             policy_loss = result["info"]["learner"]["default_policy"]["learner_stats"]["policy_loss"]
             vf_loss = result["info"]["learner"]["default_policy"]["learner_stats"]["vf_loss"]
@@ -142,9 +147,6 @@ class Node:
             num_steps_sampled = result["num_env_steps_sampled"]
             num_steps_trained = result["num_env_steps_trained"]
             training_iteration = result["training_iteration"]
-            
-            episode_reward = result["env_runners"]["episode_reward_mean"]
-            episode_len = result["env_runners"]["episode_len_mean"]
 
             # Print training stats
             print(f"[Node {self.node_id}] Training Iteration {training_iteration}: "
@@ -152,9 +154,6 @@ class Node:
             
             print(f"[Node {self.node_id}] Training Stats - Policy Loss: {policy_loss:.4f}, "
                 f"VF Loss: {vf_loss:.4f}, KL: {kl:.4f}, Entropy: {entropy:.4f}")
-            
-            print(f"[Node {self.node_id}] Episode Performance - Mean Reward: {episode_reward:.4f}, "
-                f"Mean Episode Length: {episode_len}")
 
     def get_weights(self):
         """
@@ -179,3 +178,9 @@ class Node:
         """
         self.trainer.set_weights(global_weights)
         print(f"[Node {self.node_id}] Weights updated with global model.")
+
+    def ping(self):
+        """
+        Simple ping method to check if the node is alive.
+        """
+        return True

@@ -1,5 +1,6 @@
 import ray
 import pandas as pd
+import ray.exceptions
 # RLlib
 from Node import Node
 from FederatedAggregator import FederatedAggregator
@@ -16,7 +17,8 @@ ray.init(address="auto", runtime_env={"working_dir": os.getcwd()})
 #ray.init(address="auto")
 # Path to the local data
 path_node = "/home/ubuntu/davide_b/ClimatePredictor_RL_FL/datasets_hourly/"
-start_date = pd.Timestamp("2024-06-01")
+# The ending date for the training data
+start_date = pd.Timestamp("2024-01-01")
 nodes = [
     Node.options(resources={"n12": 2}).remote(node_id=0, local_data_path=path_node + "1.csv", start_date=start_date),
     Node.options(resources={"n12": 2}).remote(node_id=1, local_data_path=path_node + "2.csv", start_date=start_date),
@@ -29,35 +31,82 @@ nodes = [
     Node.options(resources={"n14": 2}).remote(node_id=8, local_data_path=path_node + "9.csv", start_date=start_date),
 ]
 
+# Create the Federated Aggregator
 aggregator = FederatedAggregator.remote(nodes)
 
+# Initialize the active and failed nodes
+active_nodes = set(nodes) # All nodes are active
+failed_nodes = set()      # Used for the retry mechanism
+
+timeout = 5
+
+# Main loop
 round_count = 0
 while True:
     print(f"=== Round {round_count} ===")
-    print("Revealing new data started.")
-    ray.get([node.add_new_days.remote(days=1) for node in nodes])
-    print("Revealing new data completed.")
+
+    if round_count % 2 == 0 and failed_nodes:  # Every 2 rounds, retry failed nodes
+        print(f"[HEAD][INFO] Attempting to reconnect {len(failed_nodes)} failed nodes...")
+        for node in list(failed_nodes):  # Convert to list to modify set while iterating
+            try:
+                ray.get(node.ping.remote(), timeout=timeout)  # Check if the node is reachable
+                print(f"[HEAD][INFO] Node {node} reconnected!")
+                failed_nodes.remove(node)
+                active_nodes.add(node)
+            except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError):
+                print(f"[HEAD][WARN] Node {node} is still offline.")
+
+    print(f"[HEAD][INFO] Active Nodes: {len(active_nodes)} | Failed Nodes: {len(failed_nodes)}")
+
+    print("[HEAD][INFO] Revealing new data...")
+    for node in list(active_nodes):
+        try:
+            ray.get(node.add_new_days.remote(days=1), timeout=timeout)
+        except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError) as e:
+            print(f"[HEAD][WARN] Node {node} did not respond. Marking as failed. Error: {e}")
+            active_nodes.remove(node)
+            failed_nodes.add(node)
+    print("[HEAD][INFO] Data revealed.")
+
+    #Check if there is any active node
+    if not active_nodes:
+        print("[HEAD][WARN] No active nodes available. Skipping round.")
+        time.sleep(10)
+        continue
 
     # Training
-    print("Training started.")
-    ray.get([node.train.remote(num_steps=1) for node in nodes])
-    print("Training completed.")
+    print("[HEAD][INFO] Training started.")
+    for node in list(active_nodes):
+        try:
+            ray.get(node.train.remote(num_steps=1), timeout=timeout)
+        except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError) as e:
+            print(f"[HEAD][WARN] Node {node} failed during training. Marking as failed. Error: {e}")
+            active_nodes.remove(node)
+            failed_nodes.add(node)
+    print("[HEAD][INFO] Training completed.")
 
     # Federated averaging
-    print("Federated averaging started.")
-    global_weights = ray.get(aggregator.federated_averaging.remote())
-    print("Federated averaging completed.")
+    print("[HEAD][INFO] Federated averaging started.")
+    try:
+        global_weights = ray.get(aggregator.federated_averaging.remote(), timeout=timeout)
+        print("[HEAD][INFO] Federated averaging completed.")
+    except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError) as e:
+        print(f"[HEAD][WARN] Federated Aggregator is not responding! Skipping this iteration. Error: {e}")
+        time.sleep(10)
+        continue
 
     # Set the global weights on each node
-    print("Setting global weights.")
-    for node in nodes:
-        node.set_weights.remote(global_weights)
-    print("Global weights set.")
-
-    # (Opzionale) Evaluate
-    # scores = ray.get([node.evaluate.remote() for node in nodes])
-    # mean_score = sum(scores) / len(scores)
-    # print(f"Mean local eval: {mean_score}")
+    print("[HEAD][INFO] Setting global weights.")
+    for node in list(active_nodes):
+        try:
+            node.set_weights.remote(global_weights)
+        except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError) as e:
+            print(f"[HEAD][WARN] Unable to update weights for node {node}. Error: {e}")
+    print("[HEAD][INFO] Global weights set.")
+    
+    # TODO: Add a mechanism to save the global weights to disk
+    # TODO: Add a mechanism to eventually restore the global weights from disk
+    # TODO: Show the global metrics - VF Loss, Policy Loss, KL, Entropy all meaned across nodes
 
     round_count += 1
 
