@@ -81,7 +81,7 @@ class Node:
             .training(
                 gamma=0.995,
                 lr=0.0001,
-                train_batch_size=40000,
+                train_batch_size=500,
                 #sgd_minibatch_size=1024, # Deprecated
                 num_sgd_iter=20,
                 clip_param=0.2,

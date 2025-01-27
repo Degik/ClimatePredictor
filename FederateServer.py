@@ -38,7 +38,7 @@ aggregator = FederatedAggregator.remote(nodes)
 active_nodes = set(nodes) # All nodes are active
 failed_nodes = set()      # Used for the retry mechanism
 
-timeout = 5
+timeout = 10
 
 # Main loop
 round_count = 0
