@@ -55,7 +55,7 @@ By merging these techniques, the project highlights:
 1. **Clone the Repository**  
    ```bash
    git clone https://github.com/Degik/ClimatePredictor
-   cd ClimatePredictor_RL_FL
+   cd ClimatePredictor
    ```
 
 2. **Create a Virtual Environment (Optional but Recommended)**  
