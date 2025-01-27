@@ -12,7 +12,7 @@ ray stop
 sleep 5
 
 echo "Running command on head node..."
-ray start --head --node-ip-address=localhost
+ray start --head --node-ip-address=localhost --resources='{"head": 1}'
 
 # Loop through worker nodes from n12 to n14.
 echo "Stopping and restarting Ray on worker nodes..."

@@ -72,9 +72,10 @@ def _recursive_average(dict_list):
 
 @ray.remote
 class FederatedAggregator:
-    def __init__(self, nodes):
+    def __init__(self, nodes, EXCEPTIONS=None):
         self.nodes = set(nodes)
         self.failed_nodes = set()
+        self.EXCEPTIONS = EXCEPTIONS
 
     def federated_averaging(self):
         """
@@ -85,12 +86,12 @@ class FederatedAggregator:
         weights_list = []
         successful_nodes = set()
 
-        for node in self.nodes:
+        for node in list(self.nodes):
             try:
                 weights = ray.get(node.get_weights.remote())
                 weights_list.append(weights)
                 successful_nodes.add(node)
-            except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError) as e:
+            except self.EXCEPTIONS as e:
                 print(f"[HEAD][WARN] Node {node} failed to return weights. Error: {e}")
                 self.nodes.remove(node)
                 self.failed_nodes.add(node)
@@ -122,15 +123,6 @@ class FederatedAggregator:
         global_weights = collections.OrderedDict({
             "default_policy": avg_default_policy
         })
-        
-        # Update the weights on each node
-        for node in successful_nodes:
-            try:
-                node.set_weights.remote(global_weights)
-            except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError) as e:
-                print(f"[HEAD][WARN] Failed to update weights for node {node}. Error: {e}")
-                self.nodes.remove(node)
-                self.failed_nodes.add(node)
 
         print("[HAED][INFO] FedAvg: Global weights updated.")
         return global_weights

@@ -9,6 +9,15 @@ import os
 import time
 import warnings
 
+# Exceptions list
+EXCEPTIONS = tuple([
+    ray.exceptions.RayActorError,       # https://docs.ray.io/en/latest/ray-core/api/doc/ray.exceptions.RayActorError.html#ray.exceptions.RayActorError
+    ray.exceptions.GetTimeoutError,     # https://docs.ray.io/en/latest/ray-core/api/doc/ray.exceptions.GetTimeoutError.html#ray.exceptions.GetTimeoutError
+    ray.exceptions.ActorDiedError,      # https://docs.ray.io/en/latest/ray-core/api/doc/ray.exceptions.ActorDiedError.html#ray.exceptions.ActorDiedError
+    ray.exceptions.RayTaskError         # https://docs.ray.io/en/latest/ray-core/api/doc/ray.exceptions.RayTaskError.html#ray.exceptions.RayTaskError
+])
+# All exceptions can be found here: https://docs.ray.io/en/latest/ray-core/api/exceptions.html#ray-core-exceptions
+
 # Ignore deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -32,13 +41,13 @@ nodes = [
 ]
 
 # Create the Federated Aggregator
-aggregator = FederatedAggregator.remote(nodes)
+aggregator = FederatedAggregator.options(resources={"head": 1}).remote(nodes=nodes, EXCEPTIONS=EXCEPTIONS)
 
 # Initialize the active and failed nodes
 active_nodes = set(nodes) # All nodes are active
 failed_nodes = set()      # Used for the retry mechanism
 
-timeout = 10
+timeout = 15
 
 # Main loop
 round_count = 0
@@ -53,7 +62,7 @@ while True:
                 print(f"[HEAD][INFO] Node {node} reconnected!")
                 failed_nodes.remove(node)
                 active_nodes.add(node)
-            except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError):
+            except EXCEPTIONS:
                 print(f"[HEAD][WARN] Node {node} is still offline.")
 
     print(f"[HEAD][INFO] Active Nodes: {len(active_nodes)} | Failed Nodes: {len(failed_nodes)}")
@@ -62,7 +71,7 @@ while True:
     for node in list(active_nodes):
         try:
             ray.get(node.add_new_days.remote(days=1), timeout=timeout)
-        except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError) as e:
+        except EXCEPTIONS as e:
             print(f"[HEAD][WARN] Node {node} did not respond. Marking as failed. Error: {e}")
             active_nodes.remove(node)
             failed_nodes.add(node)
@@ -79,7 +88,7 @@ while True:
     for node in list(active_nodes):
         try:
             ray.get(node.train.remote(num_steps=1), timeout=timeout)
-        except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError) as e:
+        except EXCEPTIONS as e:
             print(f"[HEAD][WARN] Node {node} failed during training. Marking as failed. Error: {e}")
             active_nodes.remove(node)
             failed_nodes.add(node)
@@ -90,7 +99,7 @@ while True:
     try:
         global_weights = ray.get(aggregator.federated_averaging.remote(), timeout=timeout)
         print("[HEAD][INFO] Federated averaging completed.")
-    except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError) as e:
+    except EXCEPTIONS as e:
         print(f"[HEAD][WARN] Federated Aggregator is not responding! Skipping this iteration. Error: {e}")
         time.sleep(10)
         continue
@@ -100,7 +109,7 @@ while True:
     for node in list(active_nodes):
         try:
             node.set_weights.remote(global_weights)
-        except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError) as e:
+        except EXCEPTIONS as e:
             print(f"[HEAD][WARN] Unable to update weights for node {node}. Error: {e}")
     print("[HEAD][INFO] Global weights set.")
     
