@@ -4,6 +4,7 @@ import ray
 import collections
 # NumPy and PyTorch
 import numpy as np
+import ray.exceptions
 import torch
 
 def _is_numeric(x):
@@ -28,7 +29,7 @@ def _to_tensor(x):
     elif isinstance(x, torch.Tensor):
         return x.float()
     else:
-        raise TypeError(f"Implicit conversion to tensor not supported for type {type(x)}.")
+        raise TypeError(f"[HEAD][WARN] Implicit conversion to tensor not supported for type {type(x)}.")
 
 def _recursive_average(dict_list):
     """
@@ -56,7 +57,7 @@ def _recursive_average(dict_list):
             shapes = [t.shape for t in ts]
             if not all(s == shapes[0] for s in shapes):
                 # If shapes are different, skip
-                print(f"[SKIP] Key {key}: different shapes.")
+                print(f"[HEAD][SKIP] Key {key}: different shapes.")
                 continue
             # Calculate means
             stacked = torch.stack(ts, dim=0)
@@ -64,7 +65,7 @@ def _recursive_average(dict_list):
             out[key] = mean_t
         
         else:
-            print(f"[SKIP] Key {key}: not all numeric or all dictionaries.")
+            print(f"[HEAD][SKIP] Key {key}: not all numeric or all dictionaries.")
             pass
     
     return out
@@ -72,7 +73,8 @@ def _recursive_average(dict_list):
 @ray.remote
 class FederatedAggregator:
     def __init__(self, nodes):
-        self.nodes = nodes
+        self.nodes = set(nodes)
+        self.failed_nodes = set()
 
     def federated_averaging(self):
         """
@@ -80,8 +82,25 @@ class FederatedAggregator:
         In RLlib PPO, the actual weights are stored in weights["default_policy"].
         """
         # Take the weights from each node
-        weights_list = ray.get([node.get_weights.remote() for node in self.nodes])
-        
+        weights_list = []
+        successful_nodes = set()
+
+        for node in self.nodes:
+            try:
+                weights = ray.get(node.get_weights.remote())
+                weights_list.append(weights)
+                successful_nodes.add(node)
+            except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError) as e:
+                print(f"[HEAD][WARN] Node {node} failed to return weights. Error: {e}")
+                self.nodes.remove(node)
+                self.failed_nodes.add(node)
+
+        print(f"[HEAD][INFO] Weights collected from {len(successful_nodes)} nodes.")
+
+        if not weights_list:
+            print("[HEAD][WARN] No weights collected. Skipping aggregation.")
+            return None
+
         # Average the weights
         default_policy_list = []
         for w in weights_list:
@@ -89,11 +108,11 @@ class FederatedAggregator:
             if "default_policy" in w:
                 default_policy_list.append(w["default_policy"])
             else:
-                print("[WARN] Nothing to aggregate in this node.")
+                print("[HEAD][WARN] Nothing to aggregate in this node.")
         
         if not default_policy_list:
             # If no default_policy found, skip
-            print("[WARN] No default_policy found in any node.")
+            print("[HAED][WARN] No default_policy found in any node.")
             return
 
         # Recursive average
@@ -105,7 +124,13 @@ class FederatedAggregator:
         })
         
         # Update the weights on each node
-        ray.get([node.set_weights.remote(global_weights) for node in self.nodes])
+        for node in successful_nodes:
+            try:
+                node.set_weights.remote(global_weights)
+            except (ray.exceptions.RayActorError, ray.exceptions.GetTimeoutError, ray.exceptions.ActorDiedError) as e:
+                print(f"[HEAD][WARN] Failed to update weights for node {node}. Error: {e}")
+                self.nodes.remove(node)
+                self.failed_nodes.add(node)
 
-        print("FedAvg: Global weights updated.")
+        print("[HAED][INFO] FedAvg: Global weights updated.")
         return global_weights
