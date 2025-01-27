@@ -54,7 +54,7 @@ By merging these techniques, the project highlights:
 
 1. **Clone the Repository**  
    ```bash
-   git clone https://github.com/Degik/ClimatePredictor_RL_FL.git
+   git clone https://github.com/Degik/ClimatePredictor
    cd ClimatePredictor_RL_FL
    ```
 
