@@ -3,7 +3,7 @@ import collections
 # Ray
 import ray
 # RLlib
-from ray.train import Checkpoint
+import ray.train
 from ray.tune.registry import register_env
 from ray.rllib.algorithms.ppo import PPOConfig
 # Environment
@@ -30,6 +30,8 @@ class Node:
 
         if checkpoint_dir is None:
             FileNotFoundError(f"[Node {self.node_id}] checkpoint_dir is not defined.")
+        self.checkpoint_dir = checkpoint_dir
+        os.makedirs(checkpoint_dir, exist_ok=True)
         self.checkpoint_path = os.path.join(checkpoint_dir, f"node_{self.node_id}")
 
         # Load the full dataset
@@ -112,11 +114,8 @@ class Node:
         Load the latest checkpoint from disk.
         """
         try:
-            checkpoint = Checkpoint.from_directory(self.checkpoint_dir)
-            checkpoint_data = checkpoint.to_dict()
-            self.trainer.set_weights(checkpoint_data["weights"])
-            checkpoint_date = checkpoint_data.get("current_end_date", None)
-            print(f"[Node {self.node_id}] Loaded checkpoint with current_end_date: {checkpoint_date}.")
+            self.trainer.restore(self.checkpoint_path) #https://docs.ray.io/en/latest/rllib/package_ref/doc/ray.rllib.algorithms.algorithm.Algorithm.restore.html
+            print(f"[Node {self.node_id}] Loaded checkpoint from {self.checkpoint_path} !")
         except Exception as e:
             print(f"[Node {self.node_id}] No checkpoint found or failed to load: {e}")
 
@@ -125,13 +124,10 @@ class Node:
         Save the latest checkpoint to disk.
         """
         try:
-            checkpoint_data = {
-                "weights": self.trainer.get_weights(),
-                "current_end_date": self.current_end_date
-            }
-            checkpoint = Checkpoint.from_dict(checkpoint_data)
-            checkpoint.to_directory(self.checkpoint_dir)
-            print(f"[Node {self.node_id}] Checkpoint saved to {self.checkpoint_dir}.")
+            os.makedirs(self.checkpoint_path, exist_ok=True)
+            # Save the current checkpoint
+            self.trainer.save_checkpoint(self.checkpoint_path)
+            print(f"[Node {self.node_id}] Checkpoint saved to {self.checkpoint_path}")
         except Exception as e:
             print(f"[Node {self.node_id}] Failed to save checkpoint: {e}")
 
@@ -200,6 +196,7 @@ class Node:
             mean_policy_loss += policy_loss
             mean_kl += kl
             mean_entropy += entropy
+            self.metrics = { "VF_loss": mean_VF_loss, "policy_loss": mean_policy_loss, "kl": mean_kl, "entropy": mean_entropy }
             # Save the checkpoint
             self.save_checkpoint()
 

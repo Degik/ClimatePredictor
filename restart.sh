@@ -33,3 +33,18 @@ for i in {12..14}; do
 done
 
 echo "Ray start complete"
+
+
+# OPTIONAL: Delete checkpoints folders on worker nodes.
+# After the restart, in case delete checkpoints folders from workers
+
+# Loop through worker nodes from n12 to n14.
+echo "Deleting checkpoints folders on worker nodes..."
+for i in {12..14}; do
+  WORKER_NODE="n${i}.maas"
+  echo "Processing worker node: ${WORKER_NODE}"
+
+  # Delete the checkpoints folder on the worker node.
+  echo "  Deleting checkpoints folder..."
+  ssh ubuntu@"${WORKER_NODE}" "rm -rf /home/ubuntu/davide_b/checkpoints"
+done
