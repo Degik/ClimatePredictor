@@ -1,4 +1,4 @@
-# ClimatePredictor_RL_FL
+# ClimatePredictor
 
 A repository exploring **climate forecasting** using both **Reinforcement Learning (RL)** and **Federated Learning (FL)** approaches. This project aims to demonstrate how different machine learning techniques can be applied to predict climate-related metrics while maintaining data privacy and collaborating across multiple devices or institutions.
 
@@ -54,8 +54,8 @@ By merging these techniques, the project highlights:
 
 1. **Clone the Repository**  
    ```bash
-   git clone https://github.com/Degik/ClimatePredictor_RL_FL.git
-   cd ClimatePredictor_RL_FL
+   git clone https://github.com/Degik/ClimatePredictor
+   cd ClimatePredictor
    ```
 
 2. **Create a Virtual Environment (Optional but Recommended)**  
