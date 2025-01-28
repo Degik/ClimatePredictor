@@ -1,19 +1,19 @@
 import os
 import collections
-
+# Ray
 import ray
-import pandas as pd
-
 # RLlib
+from ray.train import Checkpoint
 from ray.tune.registry import register_env
 from ray.rllib.algorithms.ppo import PPOConfig
-
 # Environment
 from ClimateEnvironment import ClimateEnv
+# Utilities
+import pandas as pd
 
 @ray.remote
 class Node:
-    def __init__(self, node_id, local_data_path, start_date):
+    def __init__(self, node_id, local_data_path, start_date, load_checkpoint=False, checkpoint_dir=None):
         """
         Each node trains a PPO agent on its local dataset.
         
@@ -27,6 +27,10 @@ class Node:
         """
         self.node_id = node_id
         self.local_data_path = local_data_path
+
+        if checkpoint_dir is None:
+            FileNotFoundError(f"[Node {self.node_id}] checkpoint_dir is not defined.")
+        self.checkpoint_path = os.path.join(checkpoint_dir, f"node_{self.node_id}")
 
         # Load the full dataset
         try:
@@ -97,7 +101,40 @@ class Node:
         # Build the trainer
         self.trainer = self.config.build()
 
+        # Load the latest checkpoint if requested
+        if load_checkpoint:
+            self.load_checkpoint()
+
         print(f"[Node {self.node_id}] Initialized with end date: {self.current_end_date}.")
+
+    def load_checkpoint(self):
+        """
+        Load the latest checkpoint from disk.
+        """
+        try:
+            checkpoint = Checkpoint.from_directory(self.checkpoint_dir)
+            checkpoint_data = checkpoint.to_dict()
+            self.trainer.set_weights(checkpoint_data["weights"])
+            checkpoint_date = checkpoint_data.get("current_end_date", None)
+            print(f"[Node {self.node_id}] Loaded checkpoint with current_end_date: {checkpoint_date}.")
+        except Exception as e:
+            print(f"[Node {self.node_id}] No checkpoint found or failed to load: {e}")
+
+    def save_checkpoint(self):
+        """
+        Save the latest checkpoint to disk.
+        """
+        try:
+            checkpoint_data = {
+                "weights": self.trainer.get_weights(),
+                "current_end_date": self.current_end_date
+            }
+            checkpoint = Checkpoint.from_dict(checkpoint_data)
+            checkpoint.to_directory(self.checkpoint_dir)
+            print(f"[Node {self.node_id}] Checkpoint saved to {self.checkpoint_dir}.")
+        except Exception as e:
+            print(f"[Node {self.node_id}] Failed to save checkpoint: {e}")
+
 
     def add_new_days(self, days=1):
         """
@@ -131,8 +168,12 @@ class Node:
             num_steps (int): Number of training iterations to run.
         
         Returns:
-            dict: Training results from RLlib.
+            tuple: Mean values of VF loss, policy loss, KL divergence, and entropy
         """
+        mean_VF_loss = 0
+        mean_policy_loss = 0
+        mean_kl = 0
+        mean_entropy = 0
         for i in range(num_steps):
             #sample_time = self.trainer.env_runner_group.foreach_env(lambda env: env.sample())
             #print(f"[Node {self.node_id}] Sample Time: {sample_time}")
@@ -154,6 +195,21 @@ class Node:
             
             print(f"[Node {self.node_id}] Training Stats - Policy Loss: {policy_loss:.4f}, "
                 f"VF Loss: {vf_loss:.4f}, KL: {kl:.4f}, Entropy: {entropy:.4f}")
+            # Update the mean values
+            mean_VF_loss += vf_loss
+            mean_policy_loss += policy_loss
+            mean_kl += kl
+            mean_entropy += entropy
+            # Save the checkpoint
+            self.save_checkpoint()
+
+        # Calculate the mean values
+        mean_VF_loss /= num_steps           #
+        mean_policy_loss /= num_steps       #
+        mean_kl /= num_steps                #
+        mean_entropy /= num_steps           #
+
+        return mean_VF_loss, mean_policy_loss, mean_kl, mean_entropy
 
     def get_weights(self):
         """

@@ -8,7 +8,11 @@ from FederatedAggregator import FederatedAggregator
 import os
 import time
 import warnings
+# Ignore deprecation warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+# GLOBAL CONFIGURATION
+####################################################################################################
 # Exceptions list
 EXCEPTIONS = tuple([
     ray.exceptions.RayActorError,       # https://docs.ray.io/en/latest/ray-core/api/doc/ray.exceptions.RayActorError.html#ray.exceptions.RayActorError
@@ -18,31 +22,40 @@ EXCEPTIONS = tuple([
 ])
 # All exceptions can be found here: https://docs.ray.io/en/latest/ray-core/api/exceptions.html#ray-core-exceptions
 
-# Ignore deprecation warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
+# Path where to save the checkpoints
+CHECKPOINT_DIR = "/home/ubuntu/davide_b/checkpoints/"
+# Path to the local data
+PATH_NODE = "/home/ubuntu/davide_b/ClimatePredictor_RL_FL/datasets_hourly/"
+# The ending date for the training data
+START_DATE = pd.Timestamp("2024-01-01")
+####################################################################################################
 
+
+# NODE CONFIGURATION
+####################################################################################################
 # Ray initialization
 ray.init(address="auto", runtime_env={"working_dir": os.getcwd()})
-#ray.init(address="auto")
-# Path to the local data
-path_node = "/home/ubuntu/davide_b/ClimatePredictor_RL_FL/datasets_hourly/"
-# The ending date for the training data
-start_date = pd.Timestamp("2024-01-01")
+
+
 nodes = [
-    Node.options(resources={"n12": 2}).remote(node_id=0, local_data_path=path_node + "1.csv", start_date=start_date),
-    Node.options(resources={"n12": 2}).remote(node_id=1, local_data_path=path_node + "2.csv", start_date=start_date),
-    Node.options(resources={"n12": 2}).remote(node_id=2, local_data_path=path_node + "3.csv", start_date=start_date),
-    Node.options(resources={"n13": 2}).remote(node_id=3, local_data_path=path_node + "4.csv", start_date=start_date),
-    Node.options(resources={"n13": 2}).remote(node_id=4, local_data_path=path_node + "5.csv", start_date=start_date),
-    Node.options(resources={"n13": 2}).remote(node_id=5, local_data_path=path_node + "6.csv", start_date=start_date),
-    Node.options(resources={"n14": 2}).remote(node_id=6, local_data_path=path_node + "7.csv", start_date=start_date),
-    Node.options(resources={"n14": 2}).remote(node_id=7, local_data_path=path_node + "8.csv", start_date=start_date),
-    Node.options(resources={"n14": 2}).remote(node_id=8, local_data_path=path_node + "9.csv", start_date=start_date),
+    Node.options(resources={"n12": 2}).remote(node_id=0, local_data_path=PATH_NODE + "1.csv", start_date=START_DATE, checkpoint_dir=CHECKPOINT_DIR, load_checkpoint=True),
+    Node.options(resources={"n12": 2}).remote(node_id=1, local_data_path=PATH_NODE + "2.csv", start_date=START_DATE, checkpoint_dir=CHECKPOINT_DIR, load_checkpoint=True),
+    Node.options(resources={"n12": 2}).remote(node_id=2, local_data_path=PATH_NODE + "3.csv", start_date=START_DATE, checkpoint_dir=CHECKPOINT_DIR, load_checkpoint=True),
+    Node.options(resources={"n13": 2}).remote(node_id=3, local_data_path=PATH_NODE + "4.csv", start_date=START_DATE, checkpoint_dir=CHECKPOINT_DIR, load_checkpoint=True),
+    Node.options(resources={"n13": 2}).remote(node_id=4, local_data_path=PATH_NODE + "5.csv", start_date=START_DATE, checkpoint_dir=CHECKPOINT_DIR, load_checkpoint=True),
+    Node.options(resources={"n13": 2}).remote(node_id=5, local_data_path=PATH_NODE + "6.csv", start_date=START_DATE, checkpoint_dir=CHECKPOINT_DIR, load_checkpoint=True),
+    Node.options(resources={"n14": 2}).remote(node_id=6, local_data_path=PATH_NODE + "7.csv", start_date=START_DATE, checkpoint_dir=CHECKPOINT_DIR, load_checkpoint=True),
+    Node.options(resources={"n14": 2}).remote(node_id=7, local_data_path=PATH_NODE + "8.csv", start_date=START_DATE, checkpoint_dir=CHECKPOINT_DIR, load_checkpoint=True),
+    Node.options(resources={"n14": 2}).remote(node_id=8, local_data_path=PATH_NODE + "9.csv", start_date=START_DATE, checkpoint_dir=CHECKPOINT_DIR, load_checkpoint=True),
 ]
 
 # Create the Federated Aggregator
 aggregator = FederatedAggregator.options(resources={"head": 1}).remote(nodes=nodes, EXCEPTIONS=EXCEPTIONS)
+####################################################################################################
 
+
+# MAIN LOOP
+####################################################################################################
 # Initialize the active and failed nodes
 active_nodes = set(nodes) # All nodes are active
 failed_nodes = set()      # Used for the retry mechanism
@@ -53,6 +66,10 @@ timeout = 15
 round_count = 0
 while True:
     print(f"=== Round {round_count} ===")
+
+    # Metrics lists
+    mean_VF_loss_l, mean_policy_loss_l, mean_kl_l, mean_entropy_l = [], [], [], []
+    #
 
     if round_count % 2 == 0 and failed_nodes:  # Every 2 rounds, retry failed nodes
         print(f"[HEAD][INFO] Attempting to reconnect {len(failed_nodes)} failed nodes...")
@@ -87,7 +104,11 @@ while True:
     print("[HEAD][INFO] Training started.")
     for node in list(active_nodes):
         try:
-            ray.get(node.train.remote(num_steps=1), timeout=timeout)
+            mean_VF_loss, mean_policy_loss, mean_kl, mean_entropy = ray.get(node.train.remote(num_steps=1), timeout=timeout)
+            mean_VF_loss_l.append(mean_VF_loss)
+            mean_policy_loss_l.append(mean_policy_loss)
+            mean_kl_l.append(mean_kl)
+            mean_entropy_l.append(mean_entropy)
         except EXCEPTIONS as e:
             print(f"[HEAD][WARN] Node {node} failed during training. Marking as failed. Error: {e}")
             active_nodes.remove(node)
@@ -112,15 +133,18 @@ while True:
         except EXCEPTIONS as e:
             print(f"[HEAD][WARN] Unable to update weights for node {node}. Error: {e}")
     print("[HEAD][INFO] Global weights set.")
-    
-    # TODO: Add a mechanism to save the global weights to disk
-    # TODO: Add a mechanism to eventually restore the global weights from disk
-    # TODO: Show the global metrics - VF Loss, Policy Loss, KL, Entropy all meaned across nodes
+
+    # Print the mean metrics for this round
+    if mean_VF_loss_l:
+        print(f"[HEAD][INFO] Mean VF Loss: {sum(mean_VF_loss_l) / len(mean_VF_loss_l)}")
+    if mean_policy_loss_l:
+        print(f"[HEAD][INFO] Mean Policy Loss: {sum(mean_policy_loss_l) / len(mean_policy_loss_l)}")
+    if mean_kl_l:
+        print(f"[HEAD][INFO] Mean KL: {sum(mean_kl_l) / len(mean_kl_l)}")
+    if mean_entropy_l:
+        print(f"[HEAD][INFO] Mean Entropy: {sum(mean_entropy_l) / len(mean_entropy_l)}")
 
     round_count += 1
 
     # Wait for a while before starting the next round
     time.sleep(10)
-
-
-#ray.shutdown()
