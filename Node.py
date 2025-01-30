@@ -11,7 +11,7 @@ from ClimateEnvironment import ClimateEnv
 # Utilities
 import pandas as pd
 
-@ray.remote
+@ray.remote(num_cpus=2)
 class Node:
     def __init__(self, node_id, local_data_path, start_date, load_checkpoint=False, checkpoint_dir=None):
         """
@@ -86,7 +86,7 @@ class Node:
             )
             .training(
                 gamma=0.995,
-                lr=0.0001,
+                lr=0.00005,
                 train_batch_size=500,
                 #sgd_minibatch_size=1024, # Deprecated
                 num_sgd_iter=20,
@@ -155,6 +155,7 @@ class Node:
         self.trainer.env_runner_group.foreach_env(do_update)
 
         print(f"[Node {self.node_id}] Revealed new data up to: {new_end_date}.")
+        return new_end_date
 
     def train(self, num_steps=1):
         """
@@ -237,3 +238,9 @@ class Node:
         Simple ping method to check if the node is alive.
         """
         return True
+    
+    def node_id(self):
+        """
+        Return the unique identifier for this node.
+        """
+        return self.node_id

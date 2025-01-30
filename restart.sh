@@ -9,7 +9,7 @@ echo "Stopping Ray on head node..."
 ray stop
 
 # Wait for 5 seconds.
-sleep 5
+#sleep 5
 
 echo "Running command on head node..."
 ray start --head --node-ip-address=localhost --resources='{"head": 1}'
@@ -25,7 +25,7 @@ for i in {12..14}; do
   ssh ubuntu@"${WORKER_NODE}" "/home/ubuntu/.local/bin/ray stop"
 
   # Wait for 5 seconds.
-  sleep 5
+  #sleep 5
 
   # Start Ray on the worker node, connecting to the head node and specifying resources.
   echo "  Starting Ray..."

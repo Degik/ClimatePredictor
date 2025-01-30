@@ -86,15 +86,15 @@ class FederatedAggregator:
         weights_list = []
         successful_nodes = set()
 
-        for node in list(self.nodes):
+        for (node_id, node_handle) in list(self.nodes):
             try:
-                weights = ray.get(node.get_weights.remote())
+                weights = ray.get(node_handle.get_weights.remote())
                 weights_list.append(weights)
-                successful_nodes.add(node)
+                successful_nodes.add((node_id, node_handle))
             except self.EXCEPTIONS as e:
-                print(f"[HEAD][WARN] Node {node} failed to return weights. Error: {e}")
-                self.nodes.remove(node)
-                self.failed_nodes.add(node)
+                print(f"[HEAD][WARN] Node {node_id} failed to return weights. Error: {e}")
+                self.nodes.remove((node_id, node_handle))
+                self.failed_nodes.add((node_id, node_handle))
 
         print(f"[HEAD][INFO] Weights collected from {len(successful_nodes)} nodes.")
 
