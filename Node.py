@@ -10,6 +10,7 @@ from ray.rllib.algorithms.ppo import PPOConfig
 from ClimateEnvironment import ClimateEnv
 # Utilities
 import pandas as pd
+import time
 
 @ray.remote(num_cpus=2)
 class Node:
@@ -171,6 +172,7 @@ class Node:
         mean_policy_loss = 0
         mean_kl = 0
         mean_entropy = 0
+        start_time = time.time()
         for i in range(num_steps):
             #sample_time = self.trainer.env_runner_group.foreach_env(lambda env: env.sample())
             #print(f"[Node {self.node_id}] Sample Time: {sample_time}")
@@ -206,8 +208,10 @@ class Node:
         mean_policy_loss /= num_steps       #
         mean_kl /= num_steps                #
         mean_entropy /= num_steps           #
-
-        return mean_VF_loss, mean_policy_loss, mean_kl, mean_entropy
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"[Node {self.node_id}] Training completed in {elapsed_time:.4f} seconds.")
+        return mean_VF_loss, mean_policy_loss, mean_kl, mean_entropy, elapsed_time
 
     def get_weights(self):
         """

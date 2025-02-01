@@ -82,7 +82,8 @@ while True:
 
     # Metrics lists
     mean_VF_loss_l, mean_policy_loss_l, mean_kl_l, mean_entropy_l = [], [], [], []
-    #
+    # Times list
+    times = []
 
     # Check if there are any failed nodes
     # If a node is offline, try to reconnect it
@@ -138,11 +139,12 @@ while True:
     print("[HEAD][INFO] Training started.")
     for (node_id, node_handle) in list(active_nodes):
         try:
-            mean_VF_loss, mean_policy_loss, mean_kl, mean_entropy = ray.get(node_handle.train.remote(num_steps=1), timeout=timeout)
+            mean_VF_loss, mean_policy_loss, mean_kl, mean_entropy, elapsed_time = ray.get(node_handle.train.remote(num_steps=1), timeout=timeout)
             mean_VF_loss_l.append(mean_VF_loss)
             mean_policy_loss_l.append(mean_policy_loss)
             mean_kl_l.append(mean_kl)
             mean_entropy_l.append(mean_entropy)
+            times.append(elapsed_time)
         except EXCEPTIONS as e:
             print(f"[HEAD][WARN] Node {node_id} failed during training. Marking as failed. Error: {e}")
             active_nodes.remove((node_id, node_handle))
@@ -177,6 +179,13 @@ while True:
         print(f"[HEAD][INFO] Mean KL: {sum(mean_kl_l) / len(mean_kl_l)}")
     if mean_entropy_l:
         print(f"[HEAD][INFO] Mean Entropy: {sum(mean_entropy_l) / len(mean_entropy_l)}")
+
+    # Print computation times
+    for i, time in enumerate(times):
+        print(f"[HEAD][INFO] Node {i} training time: {time:.4f} seconds")
+    # Print the mean time
+    if times:
+        print(f"[HEAD][INFO] Mean Training Time: {sum(times) / len(times):.4f} seconds")
 
     round_count += 1
 
