@@ -14,7 +14,7 @@ import time
 
 @ray.remote(num_cpus=2)
 class Node:
-    def __init__(self, node_id, local_data_path, start_date, load_checkpoint=False, checkpoint_dir=None):
+    def __init__(self, node_id, local_data_path, start_date, load_checkpoint=False, checkpoint_dir=None, train_batch_size=500):
         """
         Each node trains a PPO agent on its local dataset.
         
@@ -88,7 +88,7 @@ class Node:
             .training(
                 gamma=0.995,
                 lr=0.00005,
-                train_batch_size=500,
+                train_batch_size=train_batch_size, #
                 #sgd_minibatch_size=1024, # Deprecated
                 num_sgd_iter=20,
                 clip_param=0.2,
@@ -97,7 +97,7 @@ class Node:
                 entropy_coeff=0.04,
                 lambda_=0.95,
                 use_critic=True,
-                use_gae=True
+                use_gae=True,
             )
         )
 

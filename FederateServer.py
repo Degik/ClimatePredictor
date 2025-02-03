@@ -27,7 +27,7 @@ CHECKPOINT_DIR = "/home/ubuntu/davide_b/checkpoints/"
 # Path to the local data
 PATH_NODE = "/home/ubuntu/davide_b/ClimatePredictor_RL_FL/datasets_hourly/"
 # The ending date for the training data
-START_DATE = pd.Timestamp("2024-01-01")
+START_DATE = pd.Timestamp("2025-01-01")
 #
 CSV_FILES = [ "1.csv", "2.csv", "3.csv", "4.csv", "5.csv", "6.csv", "7.csv", "8.csv", "9.csv" ]
 ####################################################################################################
@@ -35,6 +35,7 @@ CSV_FILES = [ "1.csv", "2.csv", "3.csv", "4.csv", "5.csv", "6.csv", "7.csv", "8.
 
 # NODE CONFIGURATION
 ####################################################################################################
+start_time = time.time()
 # Ray initialization
 ray.init(address="auto", runtime_env={"working_dir": os.getcwd()})
 
@@ -59,12 +60,15 @@ for i, dataset in enumerate(CSV_FILES):
             local_data_path=PATH_NODE + dataset, 
             start_date=START_DATE, 
             checkpoint_dir=CHECKPOINT_DIR, 
-            load_checkpoint=True
+            load_checkpoint=True,
+            train_batch_size=500
         )
     nodes.append((i, node_handle))
 
 # Create the Federated Aggregator
 aggregator = FederatedAggregator.options(resources={"head": 1}).remote(nodes=nodes, EXCEPTIONS=EXCEPTIONS)
+time_init = time.time() - start_time
+print(f"[HEAD][INFO] Initialization completed in {time_init:.4f} seconds.")
 ####################################################################################################
 
 # MAIN LOOP
@@ -73,7 +77,8 @@ aggregator = FederatedAggregator.options(resources={"head": 1}).remote(nodes=nod
 active_nodes = set(nodes) # All nodes are active
 failed_nodes = set()      # Used for the retry mechanism
 
-timeout = 15
+num_step = 20
+timeout = 60
 end_date = None
 # Main loop
 round_count = 0
@@ -82,11 +87,19 @@ while True:
 
     # Metrics lists
     mean_VF_loss_l, mean_policy_loss_l, mean_kl_l, mean_entropy_l = [], [], [], []
-    # Times list
+    # Times list where will be stored the training time for each node
     times = []
-
+    # Computation times
+    time_connect = None
+    time_total = None
+    time_train = None
+    time_rvl = None
+    time_aggr = None
+    #
+    start_time_total = time.time()
     # Check if there are any failed nodes
     # If a node is offline, try to reconnect it
+    start_time = time.time()
     for (node_id, node_handle) in list(failed_nodes):
         try:
             ray.get(node_handle.ping.remote(), timeout=timeout)
@@ -104,7 +117,7 @@ while True:
                     node_id=node_id, 
                     local_data_path=local_data_path, 
                     start_date=START_DATE, 
-                    checkpoint_dir=CHECKPOINT_DIR, 
+                    checkpoint_dir=CHECKPOINT_DIR,
                     load_checkpoint=True
                 )
                 # Check if the node is active
@@ -116,9 +129,12 @@ while True:
                 failed_nodes.remove((node_id, node_handle))
             except EXCEPTIONS as e:
                print(f"[HEAD][WARN] Failed to recreate the node {node_id}, there's not enough resources. Error: {e}")
+    end_time = time.time()
+    time_connect = end_time - start_time
 
     print(f"[HEAD][INFO] Active Nodes: {len(active_nodes)} | Failed Nodes: {len(failed_nodes)}")
 
+    start_time = time.time()
     print("[HEAD][INFO] Revealing new data...")
     for (node_id, node_handle) in list(active_nodes):
         try:
@@ -128,6 +144,7 @@ while True:
             active_nodes.remove((node_id, node_handle))
             failed_nodes.add((node_id, node_handle))
     print("[HEAD][INFO] Data revealed.")
+    time_rvl = time.time() - start_time
 
     #Check if there is any active node
     if not active_nodes:
@@ -136,10 +153,31 @@ while True:
         continue
 
     # Training
+    start_time = time.time()
     print("[HEAD][INFO] Training started.")
-    for (node_id, node_handle) in list(active_nodes):
+
+    try:
+        # Start the training on each node
+        training_tasks = {}
+        for (node_id, node_handle) in list(active_nodes):
+            # Start the training on the node
+            task = node_handle.train.remote(num_steps=num_step)
+            # Store the task
+            training_tasks[task] = (node_id, node_handle)
+        
+        # Wait for the training to complete
+        done, not_done = ray.wait(list(training_tasks.keys()), 
+                                  timeout=timeout,
+                                  num_returns=len(training_tasks.keys()))
+    except EXCEPTIONS as e:
+        print(f"[HEAD][WARN] Training failed. Error: {e}")
+        continue
+
+    # Get the results
+    for task in done:
+        node_id, node_handle = training_tasks[task]
         try:
-            mean_VF_loss, mean_policy_loss, mean_kl, mean_entropy, elapsed_time = ray.get(node_handle.train.remote(num_steps=1), timeout=timeout)
+            mean_VF_loss, mean_policy_loss, mean_kl, mean_entropy, elapsed_time = ray.get(task)
             mean_VF_loss_l.append(mean_VF_loss)
             mean_policy_loss_l.append(mean_policy_loss)
             mean_kl_l.append(mean_kl)
@@ -149,8 +187,17 @@ while True:
             print(f"[HEAD][WARN] Node {node_id} failed during training. Marking as failed. Error: {e}")
             active_nodes.remove((node_id, node_handle))
             failed_nodes.add((node_id, node_handle))
-    print("[HEAD][INFO] Training completed.")
 
+    for task in not_done:
+        node_id, node_handle = training_tasks[task]
+        print(f"[HEAD][WARN] Node {node_id} did not respond. Marking as failed.")
+        active_nodes.remove((node_id, node_handle))
+        failed_nodes.add((node_id, node_handle))
+
+    print("[HEAD][INFO] Training completed.")
+    time_train = time.time() - start_time
+
+    start_time = time.time()
     # Federated averaging
     print("[HEAD][INFO] Federated averaging started.")
     try:
@@ -160,7 +207,7 @@ while True:
         print(f"[HEAD][WARN] Federated Aggregator is not responding! Skipping this iteration. Error: {e}")
         time.sleep(10)
         continue
-
+    
     # Set the global weights on each node
     print("[HEAD][INFO] Setting global weights.")
     for (node_id, node_handle) in list(active_nodes):
@@ -169,6 +216,7 @@ while True:
         except EXCEPTIONS as e:
             print(f"[HEAD][WARN] Unable to update weights for node {node_id}. Error: {e}")
     print("[HEAD][INFO] Global weights set.")
+    time_aggr = time.time() - start_time
 
     # Print the mean metrics for this round
     if mean_VF_loss_l:
@@ -181,11 +229,20 @@ while True:
         print(f"[HEAD][INFO] Mean Entropy: {sum(mean_entropy_l) / len(mean_entropy_l)}")
 
     # Print computation times
-    for i, time in enumerate(times):
-        print(f"[HEAD][INFO] Node {i} training time: {time:.4f} seconds")
+    for i, time_n in enumerate(times):
+        print(f"[HEAD][INFO] Node {i} training time: {time_n:.4f} seconds")
     # Print the mean time
     if times:
         print(f"[HEAD][INFO] Mean Training Time: {sum(times) / len(times):.4f} seconds")
+    
+    # Print the computation times
+    print(f"[HEAD][INFO] Connection Time: {time_connect:.4f} seconds")
+    print(f"[HEAD][INFO] Data Reveal Time: {time_rvl:.4f} seconds")
+    print(f"[HEAD][INFO] Training Time: {time_train:.4f} seconds")
+    print(f"[HEAD][INFO] Aggregation Time: {time_aggr:.4f} seconds")
+    # Print the total time
+    time_total = time.time() - start_time_total
+    print(f"[HEAD][INFO] Total Time: {time_total:.4f} seconds")
 
     round_count += 1
 
