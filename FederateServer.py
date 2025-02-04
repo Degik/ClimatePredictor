@@ -52,6 +52,8 @@ ray.init(address="auto", runtime_env={"working_dir": os.getcwd()})
     Node.options(resources={"n14": 2}).remote(node_id=8, local_data_path=PATH_NODE + "9.csv", start_date=START_DATE, checkpoint_dir=CHECKPOINT_DIR, load_checkpoint=True),
 ]
  """
+ 
+# Create 3 nodes for each server
 nodes = []
 for i, dataset in enumerate(CSV_FILES):
     node_handle = Node.options(
@@ -64,6 +66,24 @@ for i, dataset in enumerate(CSV_FILES):
             train_batch_size=500
         )
     nodes.append((i, node_handle))
+    
+    
+# USED FOR TESTING
+# Create 1 node for each server
+# nodes = []
+# for i, dataset in enumerate(CSV_FILES):
+#     if i == 3:
+#         break
+#     node_handle = Node.options(
+#         resources={f"n{i + 12}": 6}).remote(
+#             node_id=i, 
+#             local_data_path=PATH_NODE + dataset, 
+#             start_date=START_DATE, 
+#             checkpoint_dir=CHECKPOINT_DIR, 
+#             load_checkpoint=True,
+#             train_batch_size=500
+#         )
+#     nodes.append((i, node_handle))
 
 # Create the Federated Aggregator
 aggregator = FederatedAggregator.options(resources={"head": 1}).remote(nodes=nodes, timeout=30, EXCEPTIONS=EXCEPTIONS)
@@ -77,8 +97,8 @@ print(f"[HEAD][INFO] Initialization completed in {time_init:.4f} seconds.")
 active_nodes = set(nodes) # All nodes are active
 failed_nodes = set()      # Used for the retry mechanism
 
-num_step = 20
-timeout = 60
+num_step = 250
+timeout = 3000
 end_date = None
 # Main loop
 round_count = 0
@@ -186,11 +206,12 @@ while True:
     time_connect = time.time() - start_time
 
     print(f"[HEAD][INFO] Active Nodes: {len(active_nodes)} | Failed Nodes: {len(failed_nodes)}")
+    ####################################################################################################
 
     # REVEAL NEW DATA TO THE NODES
     # ADD A NEW DAY TO THE TRAINING DATA
     ####################################################################################################
-    start_time = time.time()
+    start_time_rvl = time.time()
 
     print("[HEAD][INFO] Revealing new data...")
     add_day_tasks = {}
@@ -215,7 +236,7 @@ while True:
             failed_nodes.add((node_id, node_handle))
     
     print("[HEAD][INFO] Data revealed.")
-    time_rvl = time.time() - start_time
+    time_rvl = time.time() - start_time_rvl
     ####################################################################################################
 
     #Check if there is any active node
@@ -333,11 +354,11 @@ while True:
     for node_id, time_n in times.items():
         print(f"[HEAD][INFO] Node {node_id} training time: {time_n:.4f} seconds")
     # Print the mean time
-    if times:
-        print(f"[HEAD][INFO] Mean Training Time: {sum(times) / len(times):.4f} seconds")
+    mean_time = sum(times.values()) / len(times)
+    print(f"[HEAD][INFO] Mean training time: {mean_time:.4f} seconds")
     
     # Print the computation times
-    print(f"[HEAD][INFO] Connection Time: {time_connect:.4f} seconds")
+    print(f"[HEAD][INFO] Re-Connection Time: {time_connect:.4f} seconds")
     print(f"[HEAD][INFO] Data Reveal Time: {time_rvl:.4f} seconds")
     print(f"[HEAD][INFO] Training Time: {time_train:.4f} seconds")
     print(f"[HEAD][INFO] Aggregation Time: {time_aggr:.4f} seconds")
