@@ -85,6 +85,8 @@ round_count = 0
 while True:
     print(f"=== Round {round_count} ===")
 
+    # METRICS VARIABLES
+    ####################################################################################################
     # Metrics lists
     mean_VF_loss_l, mean_policy_loss_l, mean_kl_l, mean_entropy_l = [], [], [], []
     # Times list where will be stored the training time for each node
@@ -97,43 +99,98 @@ while True:
     time_aggr = None
     #
     start_time_total = time.time()
-    # Check if there are any failed nodes
-    # If a node is offline, try to reconnect it
+    ####################################################################################################
+
+
+    # RECONNECT NODES
+    # TRY TO RECONNECT FAILED NODES AND CREATE NEW NODES IF NEEDED
+    ####################################################################################################
+    # Start time
     start_time = time.time()
+
+    ### Ping the failed nodes
+    ping_tasks = {}
+    # Crate a ping task for each failed node
     for (node_id, node_handle) in list(failed_nodes):
+        task = node_handle.ping.remote()
+        ping_tasks[task] = (node_id, node_handle)
+
+    # Wait for the ping tasks to complete
+    done, not_done = ray.wait(
+        list(ping_tasks.keys()),
+        timeout=timeout,
+        num_returns=len(ping_tasks)
+    )
+
+    ### Nodes to recreate
+    nodes_to_recreate = []
+    ### Check the results
+    for task in done:
+        node_id, node_handle = ping_tasks[task]
         try:
-            ray.get(node_handle.ping.remote(), timeout=timeout)
+            # If the ping is successful, the node is back online
+            ray.get(task)
             print(f"[HEAD][INFO] Node {node_id} reconnected!")
             failed_nodes.remove((node_id, node_handle))
             active_nodes.add((node_id, node_handle))
-        except EXCEPTIONS:
-            print(f"[HEAD][WARN] Node {node_id} is still offline. Trying to create a new node...")
-            try:
-                resource_id = "n" + str(node_id // 3 + 12)
-                local_data_path = PATH_NODE + f"{node_id + 1}.csv"
-                
-                # Create a new node with the same ID
-                new_node_handle = Node.options(resources={resource_id: 2}).remote(
-                    node_id=node_id, 
-                    local_data_path=local_data_path, 
-                    start_date=START_DATE, 
-                    checkpoint_dir=CHECKPOINT_DIR,
-                    load_checkpoint=True
-                )
-                # Check if the node is active
-                ray.get(new_node_handle.ping.remote(), timeout=timeout)
+        except EXCEPTIONS as e:
+            print(f"[HEAD][WARN] Node {node_id} ping failed: {e}. Trying to recreate node.")
+            nodes_to_recreate.append((node_id, node_handle))
+    
+    # Take the ping failed nodes and try to recreate them
+    for task in not_done:
+        node_id, node_handle = ping_tasks[task]
+        print(f"[HEAD][WARN] Node {node_id} did not respond in time. Trying to recreate node.")
+        nodes_to_recreate.append((node_id, node_handle))
 
-                print(f"[HEAD][INFO] Node {node_id} recreated successfully.")
-                # Update active_nodes and failed_nodes
-                active_nodes.add((node_id, new_node_handle))
-                failed_nodes.remove((node_id, node_handle))
-            except EXCEPTIONS as e:
-               print(f"[HEAD][WARN] Failed to recreate the node {node_id}, there's not enough resources. Error: {e}")
+    recreation_tasks = {}
+    # Create a new node for each failed node
+    for (node_id, old_node_handle) in nodes_to_recreate:
+        resource_id = "n" + str(node_id // 3 + 12)
+        local_data_path = PATH_NODE + f"{node_id + 1}.csv"
+
+        # Create a new node with the same ID
+        new_node_handle = Node.options(resources={resource_id: 2}).remote(
+            node_id=node_id, 
+            local_data_path=local_data_path, 
+            start_date=START_DATE, 
+            checkpoint_dir=CHECKPOINT_DIR,
+            load_checkpoint=True
+        )
+        # Check if the node is active
+        new_ping = new_node_handle.ping.remote()
+        recreation_tasks[new_ping] = (node_id, old_node_handle, new_node_handle)
+
+    done_recreation, not_done_recreation = ray.wait(
+        list(recreation_tasks.keys()),
+        timeout=timeout,
+        num_returns=len(recreation_tasks)
+    )
+
+    # Check the recreation tasks that completed
+    for task in done_recreation:
+        node_id, old_node_handle, new_node_handle = recreation_tasks[task]
+        try:
+            ray.get(task)
+            print(f"[HEAD][INFO] Node {node_id} recreated successfully.")
+            active_nodes.add((node_id, new_node_handle))
+            failed_nodes.remove((node_id, old_node_handle))
+        except EXCEPTIONS as e:
+            print(f"[HEAD][WARN] Failed to recreate node {node_id}: {e}")
+
+    # Check the recreation tasks that did not complete
+    for task in not_done_recreation:
+        node_id, old_node_handle, new_node_handle = recreation_tasks[task]
+        print(f"[HEAD][WARN] Node {node_id} recreation timed out.")
+
     end_time = time.time()
     time_connect = end_time - start_time
 
     print(f"[HEAD][INFO] Active Nodes: {len(active_nodes)} | Failed Nodes: {len(failed_nodes)}")
 
+    # REVEAL NEW DATA TO THE NODES
+    # ADD A NEW DAY TO THE TRAINING DATA
+    ####################################################################################################
     start_time = time.time()
     print("[HEAD][INFO] Revealing new data...")
     for (node_id, node_handle) in list(active_nodes):
@@ -145,14 +202,17 @@ while True:
             failed_nodes.add((node_id, node_handle))
     print("[HEAD][INFO] Data revealed.")
     time_rvl = time.time() - start_time
+    ####################################################################################################
 
     #Check if there is any active node
     if not active_nodes:
         print("[HEAD][WARN] No active nodes available. Skipping round.")
         time.sleep(10)
         continue
-
-    # Training
+    
+    # TRAINING
+    # START THE TRAINING ON EACH NODE
+    ####################################################################################################
     start_time = time.time()
     print("[HEAD][INFO] Training started.")
 
