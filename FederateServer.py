@@ -66,7 +66,7 @@ for i, dataset in enumerate(CSV_FILES):
     nodes.append((i, node_handle))
 
 # Create the Federated Aggregator
-aggregator = FederatedAggregator.options(resources={"head": 1}).remote(nodes=nodes, EXCEPTIONS=EXCEPTIONS)
+aggregator = FederatedAggregator.options(resources={"head": 1}).remote(nodes=nodes, timeout=30, EXCEPTIONS=EXCEPTIONS)
 time_init = time.time() - start_time
 print(f"[HEAD][INFO] Initialization completed in {time_init:.4f} seconds.")
 ####################################################################################################
@@ -90,7 +90,7 @@ while True:
     # Metrics lists
     mean_VF_loss_l, mean_policy_loss_l, mean_kl_l, mean_entropy_l = [], [], [], []
     # Times list where will be stored the training time for each node
-    times = []
+    times = {}
     # Computation times
     time_connect = None
     time_total = None
@@ -183,8 +183,7 @@ while True:
         node_id, old_node_handle, new_node_handle = recreation_tasks[task]
         print(f"[HEAD][WARN] Node {node_id} recreation timed out.")
 
-    end_time = time.time()
-    time_connect = end_time - start_time
+    time_connect = time.time() - start_time
 
     print(f"[HEAD][INFO] Active Nodes: {len(active_nodes)} | Failed Nodes: {len(failed_nodes)}")
 
@@ -192,14 +191,29 @@ while True:
     # ADD A NEW DAY TO THE TRAINING DATA
     ####################################################################################################
     start_time = time.time()
+
     print("[HEAD][INFO] Revealing new data...")
+    add_day_tasks = {}
     for (node_id, node_handle) in list(active_nodes):
+        task = node_handle.add_new_days.remote(days=1)
+        add_day_tasks[task] = (node_id, node_handle)
+    
+    done, not_done = ray.wait(
+        list(add_day_tasks.keys()),
+        timeout=timeout,
+        num_returns=len(add_day_tasks)
+    )
+    
+    for task in done:
+        node_id, node_handle = add_day_tasks[task]
         try:
-            end_date = ray.get(node_handle.add_new_days.remote(days=1), timeout=timeout)
+            ray.get(task)
+            print(f"[HEAD][INFO] Node {node_id} received new data.")
         except EXCEPTIONS as e:
-            print(f"[HEAD][WARN] Node {node_id} did not respond. Marking as failed. Error: {e}")
+            print(f"[HEAD][WARN] Node {node_id} failed to receive new data. Error: {e}")
             active_nodes.remove((node_id, node_handle))
             failed_nodes.add((node_id, node_handle))
+    
     print("[HEAD][INFO] Data revealed.")
     time_rvl = time.time() - start_time
     ####################################################################################################
@@ -242,7 +256,7 @@ while True:
             mean_policy_loss_l.append(mean_policy_loss)
             mean_kl_l.append(mean_kl)
             mean_entropy_l.append(mean_entropy)
-            times.append(elapsed_time)
+            times[node_id] = elapsed_time
         except EXCEPTIONS as e:
             print(f"[HEAD][WARN] Node {node_id} failed during training. Marking as failed. Error: {e}")
             active_nodes.remove((node_id, node_handle))
@@ -256,7 +270,11 @@ while True:
 
     print("[HEAD][INFO] Training completed.")
     time_train = time.time() - start_time
+    ####################################################################################################
 
+    # AGGREGATION
+    # FEDERATED AVERAGING OF THE WEIGHTS
+    ####################################################################################################
     start_time = time.time()
     # Federated averaging
     print("[HEAD][INFO] Federated averaging started.")
@@ -267,17 +285,40 @@ while True:
         print(f"[HEAD][WARN] Federated Aggregator is not responding! Skipping this iteration. Error: {e}")
         time.sleep(10)
         continue
-    
+
+    # UPDATE THE GLOBAL WEIGHTS
+    ####################################################################################################
     # Set the global weights on each node
     print("[HEAD][INFO] Setting global weights.")
+    # Create a task for each node
+    update_weights_tasks = {}
     for (node_id, node_handle) in list(active_nodes):
+        task = node_handle.set_weights.remote(global_weights)
+        update_weights_tasks[task] = (node_id, node_handle)
+    
+    # Wait for the tasks to complete
+    done, not_done = ray.wait(
+        list(update_weights_tasks.keys()),
+        timeout=timeout,
+        num_returns=len(update_weights_tasks)
+    )
+    # Check the results
+    for task in done:
+        node_id, node_handle = update_weights_tasks[task]
         try:
-            node_handle.set_weights.remote(global_weights)
+            ray.get(task)
+            print(f"[HEAD][INFO] Global weights set on node {node_id}.")
         except EXCEPTIONS as e:
             print(f"[HEAD][WARN] Unable to update weights for node {node_id}. Error: {e}")
+            active_nodes.remove((node_id, node_handle))
+            failed_nodes.add((node_id, node_handle))
+
     print("[HEAD][INFO] Global weights set.")
     time_aggr = time.time() - start_time
+    ####################################################################################################
 
+    # PRINT METRICS
+    ####################################################################################################
     # Print the mean metrics for this round
     if mean_VF_loss_l:
         print(f"[HEAD][INFO] Mean VF Loss: {sum(mean_VF_loss_l) / len(mean_VF_loss_l)}")
@@ -289,8 +330,8 @@ while True:
         print(f"[HEAD][INFO] Mean Entropy: {sum(mean_entropy_l) / len(mean_entropy_l)}")
 
     # Print computation times
-    for i, time_n in enumerate(times):
-        print(f"[HEAD][INFO] Node {i} training time: {time_n:.4f} seconds")
+    for node_id, time_n in times.items():
+        print(f"[HEAD][INFO] Node {node_id} training time: {time_n:.4f} seconds")
     # Print the mean time
     if times:
         print(f"[HEAD][INFO] Mean Training Time: {sum(times) / len(times):.4f} seconds")
@@ -303,7 +344,7 @@ while True:
     # Print the total time
     time_total = time.time() - start_time_total
     print(f"[HEAD][INFO] Total Time: {time_total:.4f} seconds")
-
+    ####################################################################################################
     round_count += 1
 
     # Wait for a while before starting the next round

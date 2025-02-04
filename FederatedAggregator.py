@@ -72,9 +72,10 @@ def _recursive_average(dict_list):
 
 @ray.remote
 class FederatedAggregator:
-    def __init__(self, nodes, EXCEPTIONS=None):
+    def __init__(self, nodes, timeout, EXCEPTIONS=None):
         self.nodes = set(nodes)
         self.failed_nodes = set()
+        self.timeout = timeout
         self.EXCEPTIONS = EXCEPTIONS
 
     def federated_averaging(self):
@@ -86,9 +87,24 @@ class FederatedAggregator:
         weights_list = []
         successful_nodes = set()
 
+        # Collect weights from each node
+        aggr_tasks = {}
         for (node_id, node_handle) in list(self.nodes):
+            task = node_handle.get_weights.remote()
+            aggr_tasks[task] = (node_id, node_handle)
+
+        # Wait for all tasks to finish
+        done, _ = ray.wait(
+            list(aggr_tasks.keys()),
+            timeout=self.timeout,
+            num_returns=len(aggr_tasks)
+        )
+
+        # Collect the results
+        for task in done:
+            node_id, node_handle = aggr_tasks[task]
             try:
-                weights = ray.get(node_handle.get_weights.remote())
+                weights = ray.get(task)
                 weights_list.append(weights)
                 successful_nodes.add((node_id, node_handle))
             except self.EXCEPTIONS as e:
