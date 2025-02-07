@@ -18,6 +18,24 @@ A repository exploring **climate forecasting** using both **Reinforcement Learni
 
 ---
 
+## Overview
+
+In many real-world scenarios, climate data is collected by various weather stations or institutions spread across different locations. Sharing or centralizing such data can be challenging due to privacy regulations, ownership concerns, or infrastructure constraints.
+
+This project integrates **Reinforcement Learning (RL)** and **Federated Learning (FL)** into a unified system for climate forecasting, enabling models to:
+- Learn optimal climate predictions through RL-based decision-making.
+- Train collaboratively on decentralized datasets without sharing raw data via FL.
+- Combine RL and FL to enhance predictive performance while preserving data privacy.
+
+To manage large-scale distributed training and parallel computation efficiently, the project leverages the **Ray framework** (2.40v), which enables scalable RL and FL implementations by distributing workloads across multiple nodes.
+
+By merging these techniques, the project highlights:
+- The benefits of integrating RL and FL in climate prediction pipelines.
+- How local training and global model aggregation improve forecasting accuracy.
+- Performance trade-offs between different learning strategies in decentralized environments.
+
+---
+
 ## Features
 
 - **Unified RL & FL Training Pipeline**: The system jointly trains reinforcement learning agents and federated models to enhance climate predictions.
@@ -34,24 +52,6 @@ A repository exploring **climate forecasting** using both **Reinforcement Learni
     - HourlyWetBulbTemperature (5%) missing
     - HourlyDewPointTemperature (4%) missing
   - The **HourlyDryBulbTemperature** feature is used as the **target** for the predictor.
-
----
-
-## Overview
-
-In many real-world scenarios, climate data is collected by various weather stations or institutions spread across different locations. Sharing or centralizing such data can be challenging due to privacy regulations, ownership concerns, or infrastructure constraints.
-
-This project integrates **Reinforcement Learning (RL)** and **Federated Learning (FL)** into a unified system for climate forecasting, enabling models to:
-- Learn optimal climate predictions through RL-based decision-making.
-- Train collaboratively on decentralized datasets without sharing raw data via FL.
-- Combine RL and FL to enhance predictive performance while preserving data privacy.
-
-To manage large-scale distributed training and parallel computation efficiently, the project leverages the **Ray framework** (2.40v), which enables scalable RL and FL implementations by distributing workloads across multiple nodes.
-
-By merging these techniques, the project highlights:
-- The benefits of integrating RL and FL in climate prediction pipelines.
-- How local training and global model aggregation improve forecasting accuracy.
-- Performance trade-offs between different learning strategies in decentralized environments.
 
 ---
 
