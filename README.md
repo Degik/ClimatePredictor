@@ -77,6 +77,8 @@ Within the discovery head, there is a **Federated Aggregator** component that:
 
 In the current prototype, the aggregation applies a straightforward unweighted averaging. In future iterations, more complex weighting strategies could be added (e.g., based on the number of samples or the quality of each node’s data).
 
+![System Architecture Diagram](System_Diagram.jpg)
+
 ### Worker Nodes
 
 Each **worker node** corresponds to a weather station and:
