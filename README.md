@@ -4,17 +4,36 @@ A repository exploring **climate forecasting** using both **Reinforcement Learni
 
 ## Table of Contents
 1. [Overview](#overview)
-2. [System Architecture](#system-architecture)  
+2. [Features](#features)
+3. [System Architecture](#system-architecture)  
    - [Discovery Head](#discovery-head)  
    - [Federated Weight Aggregation](#federated-weight-aggregation)  
    - [Worker Nodes](#worker-nodes)  
    - [Scalability & Performance](#scalability--performance) 
-3. [Features](#features)
 4. [Installation](#installation)
 5. [Usage](#usage)
 6. [Contributing](#contributing)
 7. [License](#license)
 8. [Contact](#contact)
+
+---
+
+## Features
+
+- **Unified RL & FL Training Pipeline**: The system jointly trains reinforcement learning agents and federated models to enhance climate predictions.
+- **Collaborative Learning Framework**: Simulates data distribution across multiple clients while maintaining privacy using FL.
+- **Adaptive Decision-Making**: RL agents optimize climate-related actions based on aggregated FL models.
+- **Hourly Climate Features & Missing Data Analysis**:
+  - The dataset consists of hourly climate features used as inputs for the network, with some missing values:
+    - HourlyVisibility (4%) missing
+    - HourlyStationPressure (4%) missing
+    - HourlyRelativeHumidity (4%) missing
+    - HourlyWindDirection (4%) missing
+    - HourlyWindSpeed (4%) missing
+    - HourlyAltimeterSetting (6%) missing
+    - HourlyWetBulbTemperature (5%) missing
+    - HourlyDewPointTemperature (4%) missing
+  - The **HourlyDryBulbTemperature** feature is used as the **target** for the predictor.
 
 ---
 
@@ -84,27 +103,6 @@ Below is an example comparison of training and aggregation times:
 | 3 nodes (1 per machine)       | 213.80                     | 225.51                     | 0.066                    |
 | 3 nodes (same machine)        | 247.97                     | 262.83                     | 0.068                    |
 | 9 nodes (3 per machine)       | 232.31                     | 280.18                     | 0.125                    |
-
-
----
-
-
-## Features
-
-- **Unified RL & FL Training Pipeline**: The system jointly trains reinforcement learning agents and federated models to enhance climate predictions.
-- **Collaborative Learning Framework**: Simulates data distribution across multiple clients while maintaining privacy using FL.
-- **Adaptive Decision-Making**: RL agents optimize climate-related actions based on aggregated FL models.
-- **Hourly Climate Features & Missing Data Analysis**:
-  - The dataset consists of hourly climate features used as inputs for the network, with some missing values:
-    - HourlyVisibility (4%) missing
-    - HourlyStationPressure (4%) missing
-    - HourlyRelativeHumidity (4%) missing
-    - HourlyWindDirection (4%) missing
-    - HourlyWindSpeed (4%) missing
-    - HourlyAltimeterSetting (6%) missing
-    - HourlyWetBulbTemperature (5%) missing
-    - HourlyDewPointTemperature (4%) missing
-  - The **HourlyDryBulbTemperature** feature is used as the **target** for the predictor.
 
 ---
 
