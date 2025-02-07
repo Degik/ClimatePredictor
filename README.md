@@ -4,12 +4,17 @@ A repository exploring **climate forecasting** using both **Reinforcement Learni
 
 ## Table of Contents
 1. [Overview](#overview)
-2. [Features](#features)
-3. [Installation](#installation)
-4. [Usage](#usage)
-5. [Contributing](#contributing)
-6. [License](#license)
-7. [Contact](#contact)
+2. [System Architecture](#system-architecture)  
+   - [Discovery Head](#discovery-head)  
+   - [Federated Weight Aggregation](#federated-weight-aggregation)  
+   - [Worker Nodes](#worker-nodes)  
+   - [Scalability & Performance](#scalability--performance) 
+3. [Features](#features)
+4. [Installation](#installation)
+5. [Usage](#usage)
+6. [Contributing](#contributing)
+7. [License](#license)
+8. [Contact](#contact)
 
 ---
 
@@ -30,6 +35,59 @@ By merging these techniques, the project highlights:
 - Performance trade-offs between different learning strategies in decentralized environments.
 
 ---
+
+
+## System Architecture
+
+The system architecture is designed for distributed and federated training, where each weather station (node) locally processes its own data and only communicates model weights to the central node.
+
+### Discovery Head
+
+The **discovery head** (or head node) supervises the entire system. Its key responsibilities include:
+- **Initializing and monitoring** worker nodes (weather stations).
+- **Managing the training iterations**, collecting updated weights from each worker and aggregating them into a global model.
+- **Providing fault tolerance**: if any node fails, the discovery head redistributes tasks among the remaining nodes.
+
+With **Ray**, the discovery head can start, stop, or reassign training processes without halting the entire system.
+
+#### Federated Weight Aggregation
+
+Within the discovery head, there is a **Federated Aggregator** component that:
+- **Collects model parameters** (weights) from each worker node.
+- **Combines these parameters** (by simple arithmetic mean or other federated averaging strategies) to update the global model.
+
+In the current prototype, the aggregation applies a straightforward unweighted averaging. In future iterations, more complex weighting strategies could be added (e.g., based on the number of samples or the quality of each node’s data).
+
+### Worker Nodes
+
+Each **worker node** corresponds to a weather station and:
+- Operates independently of the others.
+- Maintains its own local subset of data.
+- Runs a **Proximal Policy Optimization (PPO)**-based RL training on hourly weather data.
+- Periodically sends updated weights back to the discovery head and receives the newly aggregated global weights.
+
+Workers also save **training checkpoints** locally, enabling them to resume from the last saved state in case of unexpected failures, reducing redundant computations.
+
+### Scalability & Performance
+
+The system has been tested with increasing configurations (1, 3, 9 nodes) deployed on different machines or on the same machine, measuring mean and total training times.  
+In summary:
+- **Increasing node count** improves robustness and leverages more data in parallel.
+- **Distributing nodes** across different machines (rather than multiple workers on one machine) typically reduces resource contention, improving mean training time.
+- As more nodes join, **aggregation operations** on the discovery head can become a bottleneck, requiring more efficient aggregation strategies or more powerful hardware.
+
+Below is an example comparison of training and aggregation times:
+
+| **Configuration**             | **Mean Training Time (s)** | **Total Training Time (s)** | **Aggregation Time (s)** |
+|-------------------------------|----------------------------:|----------------------------:|--------------------------:|
+| 1 node                        | 215.26                     | 215.26                     | 0.050                    |
+| 3 nodes (1 per machine)       | 213.80                     | 225.51                     | 0.066                    |
+| 3 nodes (same machine)        | 247.97                     | 262.83                     | 0.068                    |
+| 9 nodes (3 per machine)       | 232.31                     | 280.18                     | 0.125                    |
+
+
+---
+
 
 ## Features
 
